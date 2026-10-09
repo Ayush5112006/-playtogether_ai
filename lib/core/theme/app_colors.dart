@@ -34,3 +34,21 @@ class AppColors {
   static const Color outline = Color(0xFF424B6B);
   static const Color outlineVariant = Color(0xFF2B324B);
 }
+
+class AppGradients {
+  static const LinearGradient primaryButton = LinearGradient(
+    colors: [AppColors.primary, AppColors.primaryContainer],
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+  static const RadialGradient ambientBloom1 = RadialGradient(
+    center: Alignment(-0.6, -0.6),
+    radius: 1.2,
+    colors: [Color(0x337967FF), Colors.transparent],
+  );
+  static const RadialGradient ambientBloom2 = RadialGradient(
+    center: Alignment(0.7, 0.7),
+    radius: 1.2,
+    colors: [Color(0x2200E5FF), Colors.transparent],
+  );
+}

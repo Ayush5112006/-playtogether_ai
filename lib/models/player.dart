@@ -28,6 +28,10 @@ class Player {
 
   double get accuracy => totalAnswered == 0 ? 0.0 : (correctCount / totalAnswered) * 100;
 
+  bool get isReady => true;
+  String get deviceName => 'Fire TV Remote #1';
+  String get teamName => name;
+
   static List<Player> getDefaultPlayers() {
     return [
       Player(

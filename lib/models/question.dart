@@ -60,6 +60,52 @@ class Question {
     );
   }
 
+  int get correctIndex {
+    final idx = options.indexWhere((o) => o.id == correctOptionId);
+    return idx != -1 ? idx : 0;
+  }
+
+  int get points => pointValue;
+
+  static List<Question> getSampleQuestions() {
+    return [
+      Question(
+        id: 'q_001',
+        category: 'Cinema Clues',
+        categoryEmoji: '🎬',
+        difficulty: 'MEDIUM',
+        questionText: 'Which movie character is famous for the line:',
+        quoteHighlight: '"May the Force be with you"',
+        options: [
+          Option(id: 'A', text: 'Luke Skywalker'),
+          Option(id: 'B', text: 'Han Solo'),
+          Option(id: 'C', text: 'Obi-Wan Kenobi'),
+          Option(id: 'D', text: 'Darth Vader'),
+        ],
+        correctOptionId: 'B',
+        explanation: 'Han Solo says "May the Force be with you" to Luke before the assault on the Death Star.',
+        pointValue: 150,
+      ),
+      Question(
+        id: 'q_002',
+        category: 'Science & Cosmos',
+        categoryEmoji: '🚀',
+        difficulty: 'MEDIUM',
+        questionText: 'Which planet in our solar system has the highest surface temperature?',
+        quoteHighlight: '"Surface temperature reaches 867°F"',
+        options: [
+          Option(id: 'A', text: 'Mercury'),
+          Option(id: 'B', text: 'Venus'),
+          Option(id: 'C', text: 'Mars'),
+          Option(id: 'D', text: 'Jupiter'),
+        ],
+        correctOptionId: 'B',
+        explanation: 'Venus is the hottest planet due to its dense greenhouse-gas atmosphere trapping heat.',
+        pointValue: 100,
+      ),
+    ];
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'category': category,

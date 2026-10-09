@@ -216,11 +216,11 @@ class _GameplayScreenState extends State<GameplayScreen> {
           Row(
             children: [
               Expanded(
-                child: _buildAnswerCard(0, currentQ.options[0], 'D-PAD LEFT', Icons.arrow_back),
+                child: _buildAnswerCard(0, currentQ.options[0].text, 'D-PAD LEFT', Icons.arrow_back),
               ),
               const SizedBox(width: 20),
               Expanded(
-                child: _buildAnswerCard(1, currentQ.options[1], 'D-PAD UP', Icons.arrow_upward, isFocused: selectedOptionIndex == 1),
+                child: _buildAnswerCard(1, currentQ.options[1].text, 'D-PAD UP', Icons.arrow_upward, isFocused: selectedOptionIndex == 1),
               ),
             ],
           ),
@@ -228,11 +228,11 @@ class _GameplayScreenState extends State<GameplayScreen> {
           Row(
             children: [
               Expanded(
-                child: _buildAnswerCard(2, currentQ.options[2], 'D-PAD DOWN', Icons.arrow_downward),
+                child: _buildAnswerCard(2, currentQ.options[2].text, 'D-PAD DOWN', Icons.arrow_downward),
               ),
               const SizedBox(width: 20),
               Expanded(
-                child: _buildAnswerCard(3, currentQ.options[3], 'D-PAD RIGHT', Icons.arrow_forward),
+                child: _buildAnswerCard(3, currentQ.options[3].text, 'D-PAD RIGHT', Icons.arrow_forward),
               ),
             ],
           ),

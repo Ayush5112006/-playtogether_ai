@@ -65,7 +65,7 @@ class AnswerResultScreen extends StatelessWidget {
 
             // Explanation Card
             Container(
-              maxWidth: 800,
+              constraints: const BoxConstraints(maxWidth: 800),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: AppColors.surfaceHigh.withValues(alpha: 0.8),
