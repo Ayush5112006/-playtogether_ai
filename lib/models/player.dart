@@ -1,92 +1,82 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import '../core/theme/app_colors.dart';
 
 class Player {
   final String id;
   String name;
-  String teamName;
-  String roleTag;
+  String avatarName;
   IconData icon;
   Color accentColor;
-  bool isReady;
   int score;
   int streak;
-  String deviceName;
   int correctCount;
   int totalAnswered;
+  String roleTag;
 
   Player({
     required this.id,
     required this.name,
-    required this.teamName,
-    required this.roleTag,
+    required this.avatarName,
     required this.icon,
     required this.accentColor,
-    this.isReady = true,
     this.score = 0,
     this.streak = 0,
-    required this.deviceName,
     this.correctCount = 0,
     this.totalAnswered = 0,
+    this.roleTag = 'Player',
   });
+
+  double get accuracy => totalAnswered == 0 ? 0.0 : (correctCount / totalAnswered) * 100;
 
   static List<Player> getDefaultPlayers() {
     return [
       Player(
         id: 'p1',
         name: 'Mom',
-        teamName: 'Team Magenta',
-        roleTag: 'Trivia Anchor',
+        avatarName: 'Mom',
         icon: Icons.face_3,
         accentColor: AppColors.tertiary,
-        isReady: true,
         score: 390,
         streak: 2,
-        deviceName: 'Remote 1',
         correctCount: 5,
         totalAnswered: 10,
+        roleTag: 'Trivia Anchor',
       ),
       Player(
         id: 'p2',
         name: 'Dad',
-        teamName: 'Team Cyan',
-        roleTag: 'Biggest Comeback',
+        avatarName: 'Dad',
         icon: Icons.face_6,
         accentColor: AppColors.secondary,
-        isReady: true,
         score: 420,
         streak: 1,
-        deviceName: 'Remote 2',
         correctCount: 6,
         totalAnswered: 10,
+        roleTag: 'Biggest Comeback',
       ),
       Player(
         id: 'p3',
         name: 'Maya',
-        teamName: 'Captain • Team Violet',
-        roleTag: 'Streak Leader',
+        avatarName: 'Maya',
         icon: Icons.smart_toy,
         accentColor: AppColors.primary,
-        isReady: true,
         score: 520,
         streak: 4,
-        deviceName: 'Phone App',
         correctCount: 8,
         totalAnswered: 10,
+        roleTag: 'Streak Leader',
       ),
       Player(
         id: 'p4',
         name: 'Aarav',
-        teamName: 'Team Amber',
-        roleTag: 'Science Prodigy',
+        avatarName: 'Aarav',
         icon: Icons.sentiment_very_satisfied,
-        accentColor: AppColors.amberWarning,
-        isReady: true,
+        accentColor: AppColors.goldAccent,
         score: 470,
         streak: 3,
-        deviceName: 'Remote 4',
         correctCount: 7,
         totalAnswered: 10,
+        roleTag: 'Science Prodigy',
       ),
     ];
   }

@@ -1,72 +1,75 @@
+class Option {
+  final String id; // "A", "B", "C", "D"
+  final String text;
+
+  Option({required this.id, required this.text});
+
+  factory Option.fromJson(Map<String, dynamic> json) {
+    return Option(
+      id: json['id'] as String,
+      text: json['text'] as String,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'text': text,
+      };
+}
+
 class Question {
   final String id;
   final String category;
   final String categoryEmoji;
+  final String difficulty; // "EASY", "MEDIUM", "HARD"
   final String questionText;
   final String quoteHighlight;
-  final List<String> options; // [Left, Up, Down, Right]
-  final int correctIndex;
-  final int points;
-  final String hintText;
+  final List<Option> options;
+  final String correctOptionId;
+  final String explanation;
+  final int pointValue;
 
   Question({
     required this.id,
     required this.category,
-    required this.categoryEmoji,
+    this.categoryEmoji = '🧠',
+    required this.difficulty,
     required this.questionText,
     this.quoteHighlight = '',
     required this.options,
-    required this.correctIndex,
-    required this.points,
-    required this.hintText,
+    required this.correctOptionId,
+    required this.explanation,
+    required this.pointValue,
   });
 
-  static List<Question> getSampleQuestions() {
-    return [
-      Question(
-        id: 'q1',
-        category: 'Cinema Clues',
-        categoryEmoji: '🎬',
-        questionText: 'Which movie character is famous for the line:',
-        quoteHighlight: '"May the Force be with you"',
-        options: ['Luke Skywalker', 'Han Solo', 'Obi-Wan Kenobi', 'Darth Vader'],
-        correctIndex: 1, // Han Solo
-        points: 150,
-        hintText: 'A famous space smuggler and pilot of the Millennium Falcon.',
-      ),
-      Question(
-        id: 'q2',
-        category: 'Science & Cosmos',
-        categoryEmoji: '🚀',
-        questionText: 'What is the hottest planet in our solar system?',
-        quoteHighlight: '"Surface temperature exceeds 860°F"',
-        options: ['Mercury', 'Venus', 'Mars', 'Jupiter'],
-        correctIndex: 1, // Venus
-        points: 200,
-        hintText: 'Its dense atmosphere traps heat in a runaway greenhouse effect.',
-      ),
-      Question(
-        id: 'q3',
-        category: 'Pop Culture & Music',
-        categoryEmoji: '🎵',
-        questionText: 'Which legendary band performed live on the roof of Apple Records in 1969?',
-        quoteHighlight: '"Get Back to where you once belonged"',
-        options: ['The Rolling Stones', 'The Beatles', 'Queen', 'Led Zeppelin'],
-        correctIndex: 1, // The Beatles
-        points: 180,
-        hintText: 'The iconic Fab Four from Liverpool.',
-      ),
-      Question(
-        id: 'q4',
-        category: 'Wildcard Buzzer Blitz',
-        categoryEmoji: '⚡',
-        questionText: 'Which mammal is known to have the powerful bite force of over 1,000 PSI?',
-        quoteHighlight: '"Surprise Double Points Round!"',
-        options: ['Grizzly Bear', 'Hippopotamus', 'Lion', 'Jaguar'],
-        correctIndex: 1, // Hippopotamus
-        points: 300,
-        hintText: 'Native to Sub-Saharan Africa, loves freshwater lakes and rivers.',
-      ),
-    ];
+  factory Question.fromJson(Map<String, dynamic> json) {
+    var rawOptions = json['options'] as List<dynamic>? ?? [];
+    List<Option> opts = rawOptions.map((o) => Option.fromJson(o as Map<String, dynamic>)).toList();
+    
+    return Question(
+      id: json['id'] as String? ?? 'q_001',
+      category: json['category'] as String? ?? 'General',
+      categoryEmoji: json['categoryEmoji'] as String? ?? '🧠',
+      difficulty: json['difficulty'] as String? ?? 'MEDIUM',
+      questionText: json['question'] as String? ?? json['questionText'] as String? ?? '',
+      quoteHighlight: json['quoteHighlight'] as String? ?? '',
+      options: opts,
+      correctOptionId: json['correctOptionId'] as String? ?? 'A',
+      explanation: json['explanation'] as String? ?? '',
+      pointValue: json['pointValue'] as int? ?? 100,
+    );
   }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'category': category,
+        'categoryEmoji': categoryEmoji,
+        'difficulty': difficulty,
+        'question': questionText,
+        'quoteHighlight': quoteHighlight,
+        'options': options.map((o) => o.toJson()).toList(),
+        'correctOptionId': correctOptionId,
+        'explanation': explanation,
+        'pointValue': pointValue,
+      };
 }
