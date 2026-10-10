@@ -23,6 +23,16 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Root route handler
+app.get('/', (_req, res) => {
+  res.json({
+    success: true,
+    message: 'PlayTogether AI Backend API',
+    healthCheck: '/api/health',
+    version: '1.0.0'
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Routes — all under /api prefix
 // ---------------------------------------------------------------------------

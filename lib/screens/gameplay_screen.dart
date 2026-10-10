@@ -10,6 +10,7 @@ class GameplayScreen extends StatefulWidget {
   final VoidCallback onTriggerAdaptation;
   final VoidCallback onGameFinished;
   final ValueChanged<int> onScoreUpdate;
+  final String? lastRemoteCommand;
 
   const GameplayScreen({
     super.key,
@@ -18,6 +19,7 @@ class GameplayScreen extends StatefulWidget {
     required this.onTriggerAdaptation,
     required this.onGameFinished,
     required this.onScoreUpdate,
+    this.lastRemoteCommand,
   });
 
   @override
@@ -30,6 +32,25 @@ class _GameplayScreenState extends State<GameplayScreen> {
   int secondsRemaining = 12;
   Timer? _timer;
   bool isAnswerSubmitted = false;
+
+  @override
+  void didUpdateWidget(GameplayScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.lastRemoteCommand != null && widget.lastRemoteCommand != oldWidget.lastRemoteCommand) {
+      final cmd = widget.lastRemoteCommand!;
+      if (cmd == 'LEFT') {
+        setState(() => selectedOptionIndex = 0);
+      } else if (cmd == 'UP') {
+        setState(() => selectedOptionIndex = 1);
+      } else if (cmd == 'DOWN') {
+        setState(() => selectedOptionIndex = 2);
+      } else if (cmd == 'RIGHT') {
+        setState(() => selectedOptionIndex = 3);
+      } else if (cmd == 'OK') {
+        _submitAnswer();
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -216,7 +237,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
           Row(
             children: [
               Expanded(
-                child: _buildAnswerCard(0, currentQ.options[0].text, 'D-PAD LEFT', Icons.arrow_back),
+                child: _buildAnswerCard(0, currentQ.options[0].text, 'D-PAD LEFT', Icons.arrow_back, isFocused: selectedOptionIndex == 0),
               ),
               const SizedBox(width: 20),
               Expanded(
@@ -228,11 +249,11 @@ class _GameplayScreenState extends State<GameplayScreen> {
           Row(
             children: [
               Expanded(
-                child: _buildAnswerCard(2, currentQ.options[2].text, 'D-PAD DOWN', Icons.arrow_downward),
+                child: _buildAnswerCard(2, currentQ.options[2].text, 'D-PAD DOWN', Icons.arrow_downward, isFocused: selectedOptionIndex == 2),
               ),
               const SizedBox(width: 20),
               Expanded(
-                child: _buildAnswerCard(3, currentQ.options[3].text, 'D-PAD RIGHT', Icons.arrow_forward),
+                child: _buildAnswerCard(3, currentQ.options[3].text, 'D-PAD RIGHT', Icons.arrow_forward, isFocused: selectedOptionIndex == 3),
               ),
             ],
           ),

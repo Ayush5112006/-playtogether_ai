@@ -3,10 +3,12 @@ import '../theme/app_theme.dart';
 
 class GameSelectScreen extends StatefulWidget {
   final VoidCallback onCreateGame;
+  final String? lastRemoteCommand;
 
   const GameSelectScreen({
     super.key,
     required this.onCreateGame,
+    this.lastRemoteCommand,
   });
 
   @override
@@ -18,6 +20,21 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
   String selectedDifficulty = 'ADAPTIVE';
   String selectedDuration = '10 Min';
   String selectedMode = 'Individual FFA';
+
+  @override
+  void didUpdateWidget(GameSelectScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.lastRemoteCommand != null && widget.lastRemoteCommand != oldWidget.lastRemoteCommand) {
+      final cmd = widget.lastRemoteCommand!;
+      if (cmd == 'LEFT' || cmd == 'UP') {
+        setState(() => selectedCategoryIndex = (selectedCategoryIndex - 1 + 4) % 4);
+      } else if (cmd == 'RIGHT' || cmd == 'DOWN') {
+        setState(() => selectedCategoryIndex = (selectedCategoryIndex + 1) % 4);
+      } else if (cmd == 'OK') {
+        widget.onCreateGame();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -74,13 +91,13 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
           // 4 GAME CATEGORY CARDS RAIL
           Row(
             children: [
-              _buildCategoryCard(0, 'General Trivia', '🧠', 'Test what everyone knows across science & pop culture.', '10m', 'Family Favorite', AppColors.secondary),
+              _buildCategoryCard(0, 'General Trivia', '🧠', 'Test what everyone knows across science & pop culture.', '10m', 'Family Favorite', AppColors.secondary, isFocused: selectedCategoryIndex == 0),
               const SizedBox(width: 16),
               _buildCategoryCard(1, 'MOVIE GUESS', '🎬', 'Audio soundbites, quote mashups, and AI poster clues.', '10m', 'Popular', AppColors.secondary, isFocused: selectedCategoryIndex == 1),
               const SizedBox(width: 16),
-              _buildCategoryCard(2, 'AI WILDCARD', '🎯', 'Dynamic live rule shifts and spontaneous mini-games.', '15m', 'AI Curated', AppColors.primary),
+              _buildCategoryCard(2, 'AI WILDCARD', '🎯', 'Dynamic live rule shifts and spontaneous mini-games.', '15m', 'AI Curated', AppColors.primary, isFocused: selectedCategoryIndex == 2),
               const SizedBox(width: 16),
-              _buildCategoryCard(3, 'LET AI CHOOSE', '✨', 'CORTEX-9 synthesizes the perfect custom challenge.', 'Custom', 'Recommended', AppColors.tertiary),
+              _buildCategoryCard(3, 'LET AI CHOOSE', '✨', 'CORTEX-9 synthesizes the perfect custom challenge.', 'Custom', 'Recommended', AppColors.tertiary, isFocused: selectedCategoryIndex == 3),
             ],
           ),
 

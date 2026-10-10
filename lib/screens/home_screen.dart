@@ -56,9 +56,14 @@ class HomeScreen extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 12),
-                        Text(
-                          'Ready to play?',
-                          style: AppStyles.displayHero(),
+                        ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            colors: [Color(0xFFFFE9A8), Color(0xFFFFD76A), Color(0xFFD6A63D)],
+                          ).createShader(bounds),
+                          child: Text(
+                            'ONE TV. EVERYONE PLAYS.',
+                            style: AppStyles.displayHero(color: Colors.white),
+                          ),
                         ),
                         const SizedBox(height: 12),
                         Text(

@@ -6,6 +6,7 @@ import 'models/question.dart';
 import 'widgets/top_bar.dart';
 import 'widgets/bottom_hud.dart';
 import 'widgets/dpad_remote_overlay.dart';
+import 'widgets/animated_ai_network_background.dart';
 import 'screens/home_screen.dart';
 import 'screens/player_setup_screen.dart';
 import 'screens/game_select_screen.dart';
@@ -29,7 +30,7 @@ class PlayTogetherApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: AppColors.background,
+        scaffoldBackgroundColor: const Color(0xFF070812),
         useMaterial3: true,
       ),
       home: const MainTVViewport(),
@@ -48,45 +49,19 @@ class _MainTVViewportState extends State<MainTVViewport> {
   int currentScreenIndex = 0; // 0: Hub, 1: Setup, 2: Select, 3: Synthesis, 4: Gameplay, 5: Adaptation, 6: Winner
   late List<Player> players;
   late List<Question> questions;
-  bool isRemoteOverlayVisible = false;
-  final FocusNode _focusNode = FocusNode();
-
-  @override
-  void initState() {
-    super.initState();
-    players = Player.getDefaultPlayers();
-    questions = Question.getSampleQuestions();
-  }
-
-  @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  void _handleKeyEvent(KeyEvent event) {
-    if (event is KeyDownEvent) {
-      if (event.logicalKey == LogicalKeyboardKey.arrowRight || event.logicalKey == LogicalKeyboardKey.keyD) {
-        _handleRemoteCommand('RIGHT');
-      } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft || event.logicalKey == LogicalKeyboardKey.keyA) {
-        _handleRemoteCommand('LEFT');
-      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp || event.logicalKey == LogicalKeyboardKey.keyW) {
-        _handleRemoteCommand('UP');
-      } else if (event.logicalKey == LogicalKeyboardKey.arrowDown || event.logicalKey == LogicalKeyboardKey.keyS) {
-        _handleRemoteCommand('DOWN');
-      } else if (event.logicalKey == LogicalKeyboardKey.enter || event.logicalKey == LogicalKeyboardKey.space) {
-        _handleRemoteCommand('OK');
-      } else if (event.logicalKey == LogicalKeyboardKey.escape || event.logicalKey == LogicalKeyboardKey.backspace) {
-        _handleRemoteCommand('BACK');
-      }
-    }
-  }
+  String? lastRemoteCommand;
+  int remoteCommandCounter = 0;
 
   void _handleRemoteCommand(String cmd) {
     setState(() {
+      remoteCommandCounter++;
+      lastRemoteCommand = cmd;
+
       if (cmd == 'OK') {
-        if (currentScreenIndex < 4) {
+        if (currentScreenIndex < 2) {
           currentScreenIndex++;
+        } else if (currentScreenIndex == 3) {
+          currentScreenIndex = 4;
         } else if (currentScreenIndex == 5) { // Adaptation -> Gameplay next q
           currentScreenIndex = 4;
         } else if (currentScreenIndex == 6) { // Winner -> Hub
@@ -102,19 +77,134 @@ class _MainTVViewportState extends State<MainTVViewport> {
         }
       }
     });
+
+    // Provide visual toast feedback for remote controller action
+    if (mounted) {
+      String msg = '';
+      switch (cmd) {
+        case 'LEFT':
+          msg = '⬅️ D-Pad Left Pressed';
+          break;
+        case 'RIGHT':
+          msg = '➡️ D-Pad Right Pressed';
+          break;
+        case 'UP':
+          msg = '⬆️ D-Pad Up Pressed';
+          break;
+        case 'DOWN':
+          msg = '⬇️ D-Pad Down Pressed';
+          break;
+        case 'OK':
+          msg = '🎯 OK Action Executed';
+          break;
+        case 'BACK':
+          msg = '↩️ Back Navigation';
+          break;
+        case 'MIC':
+          msg = '🎤 Voice Listening: Room Audio Active';
+          break;
+        case 'BUZZ':
+          msg = '🔔 Phone Buzzer Triggered by Maya!';
+          break;
+        default:
+          msg = '⚡ Command: $cmd';
+      }
+
+      ScaffoldMessenger.of(context).clearSnackBars();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          duration: const Duration(milliseconds: 1200),
+          backgroundColor: AppColors.surfaceHigh,
+          behavior: SnackBarBehavior.floating,
+          margin: const EdgeInsets.only(bottom: 80, left: 30, right: 300),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: AppColors.secondary, width: 1.5),
+          ),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Dynamic background energy & opacity per screen
+    double bgOpacity;
+    double bgSpeed;
+    double bgGlow;
+    int pCount;
+
+    switch (currentScreenIndex) {
+      case 0: // Home Screen Hub
+        bgOpacity = 0.90;
+        bgSpeed = 1.0;
+        bgGlow = 1.1;
+        pCount = 75;
+        break;
+      case 1: // Player Setup
+        bgOpacity = 0.45;
+        bgSpeed = 0.7;
+        bgGlow = 0.7;
+        pCount = 60;
+        break;
+      case 2: // Game Select
+        bgOpacity = 0.55;
+        bgSpeed = 0.85;
+        bgGlow = 0.85;
+        pCount = 65;
+        break;
+      case 3: // AI Synthesis Screen (Question Generation)
+        bgOpacity = 0.95;
+        bgSpeed = 1.4;
+        bgGlow = 1.4;
+        pCount = 85;
+        break;
+      case 4: // Gameplay Screen (Keep low opacity so text & choices remain crystal clear)
+        bgOpacity = 0.28;
+        bgSpeed = 0.65;
+        bgGlow = 0.55;
+        pCount = 55;
+        break;
+      case 5: // AI Adaptation Screen
+        bgOpacity = 0.85;
+        bgSpeed = 1.3;
+        bgGlow = 1.25;
+        pCount = 80;
+        break;
+      case 6: // Winner Recap
+        bgOpacity = 0.90;
+        bgSpeed = 1.0;
+        bgGlow = 1.3;
+        pCount = 75;
+        break;
+      default:
+        bgOpacity = 0.85;
+        bgSpeed = 1.0;
+        bgGlow = 1.0;
+        pCount = 70;
+    }
+
     return KeyboardListener(
       focusNode: _focusNode,
       autofocus: true,
       onKeyEvent: _handleKeyEvent,
       child: Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: const Color(0xFF070812),
         body: Stack(
           children: [
-            // Ambient Volumetric TV Shaders
+            // 1. Continuous Animated Gold AI Network Background
+            Positioned.fill(
+              child: AnimatedAINetworkBackground(
+                opacity: bgOpacity,
+                animationSpeed: bgSpeed,
+                glowIntensity: bgGlow,
+                particleCount: pCount,
+                backgroundColor: const Color(0xFF070812),
+              ),
+            ),
+
+            // 2. Ambient Volumetric TV Shaders
             Positioned.fill(
               child: Container(
                 decoration: const BoxDecoration(
@@ -130,7 +220,7 @@ class _MainTVViewportState extends State<MainTVViewport> {
               ),
             ),
 
-            // Main 16:9 Viewport Shell
+            // 3. Main 16:9 Viewport Shell
             Column(
               children: [
                 // Top App Bar
@@ -153,7 +243,7 @@ class _MainTVViewportState extends State<MainTVViewport> {
               ],
             ),
 
-            // D-Pad TV Controller / Phone Buzzer Simulation Overlay
+            // 4. D-Pad TV Controller / Phone Buzzer Simulation Overlay
             DpadRemoteOverlay(
               isVisible: isRemoteOverlayVisible,
               onToggle: () => setState(() => isRemoteOverlayVisible = !isRemoteOverlayVisible),
