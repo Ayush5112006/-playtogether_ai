@@ -33,6 +33,7 @@ class AppColors {
 
   static const Color emeraldReady = Color(0xFF34D399);
   static const Color amberWarning = Color(0xFFF59E0B);
+  static const Color rubyError = Color(0xFFEF4444);
 }
 
 class AppGradients {

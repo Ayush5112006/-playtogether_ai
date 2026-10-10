@@ -30,4 +30,10 @@ router.post('/sessions/:id/surprise', sessionController.getSurpriseChallenge);
 // POST /api/sessions/:id/recap — Post-game recap & insights
 router.post('/sessions/:id/recap', sessionController.getRecap);
 
+// GET /api/questions — Retrieve all active questions directly from database
+router.get('/questions', sessionController.getAllQuestions);
+
+// GET /api/categories — Retrieve categories & question counts
+router.get('/categories', sessionController.getCategories);
+
 export default router;

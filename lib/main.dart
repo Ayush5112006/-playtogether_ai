@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
 import 'models/player.dart';
 import 'models/question.dart';
+import 'services/api_service.dart';
 import 'widgets/top_bar.dart';
 import 'widgets/bottom_hud.dart';
 import 'widgets/dpad_remote_overlay.dart';
@@ -50,16 +51,53 @@ class _MainTVViewportState extends State<MainTVViewport> {
   int gameplayQuestionIndex = 0;
   late List<Player> players;
   late List<Question> questions;
+  List<Map<String, dynamic>> categories = [];
+  String activeSessionId = 'session_live_4892';
+  String selectedCategory = 'Cinema Clues';
+  String selectedDifficulty = 'ADAPTIVE';
+
   bool isRemoteOverlayVisible = true;
   final FocusNode _focusNode = FocusNode();
   String? lastRemoteCommand;
   int remoteCommandCounter = 0;
+
+  final ApiService _apiService = ApiService();
 
   @override
   void initState() {
     super.initState();
     players = Player.getDefaultPlayers();
     questions = Question.getSampleQuestions();
+    _loadDynamicDatabaseContent();
+  }
+
+  Future<void> _loadDynamicDatabaseContent() async {
+    try {
+      final fetchedCategories = await _apiService.fetchCategories();
+      final fetchedQuestions = await _apiService.fetchAllQuestions();
+      final newSessionId = await _apiService.createSession(
+        players: players.map((p) => p.toSessionMap()).toList(),
+        difficulty: selectedDifficulty,
+      );
+
+      if (mounted) {
+        setState(() {
+          if (fetchedCategories.isNotEmpty) categories = fetchedCategories;
+          if (fetchedQuestions.isNotEmpty) questions = fetchedQuestions;
+          if (newSessionId.isNotEmpty) activeSessionId = newSessionId;
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _onCategoryChanged(String categoryName) async {
+    setState(() => selectedCategory = categoryName);
+    try {
+      final catQuestions = await _apiService.fetchAllQuestions(category: categoryName);
+      if (mounted && catQuestions.isNotEmpty) {
+        setState(() => questions = catQuestions);
+      }
+    } catch (_) {}
   }
 
   @override
@@ -82,6 +120,10 @@ class _MainTVViewportState extends State<MainTVViewport> {
         _handleRemoteCommand('OK');
       } else if (event.logicalKey == LogicalKeyboardKey.escape || event.logicalKey == LogicalKeyboardKey.backspace) {
         _handleRemoteCommand('BACK');
+      } else if (event.logicalKey == LogicalKeyboardKey.keyB) {
+        _handleRemoteCommand('BUZZ');
+      } else if (event.logicalKey == LogicalKeyboardKey.keyM) {
+        _handleRemoteCommand('MIC');
       }
     }
   }
@@ -113,112 +155,56 @@ class _MainTVViewportState extends State<MainTVViewport> {
         }
       }
     });
-
-    // Provide visual toast feedback for remote controller action
-    if (mounted) {
-      String msg = '';
-      switch (cmd) {
-        case 'LEFT':
-          msg = '⬅️ D-Pad Left Pressed';
-          break;
-        case 'RIGHT':
-          msg = '➡️ D-Pad Right Pressed';
-          break;
-        case 'UP':
-          msg = '⬆️ D-Pad Up Pressed';
-          break;
-        case 'DOWN':
-          msg = '⬇️ D-Pad Down Pressed';
-          break;
-        case 'OK':
-          msg = '🎯 OK Action Executed';
-          break;
-        case 'BACK':
-          msg = '↩️ Back Navigation';
-          break;
-        case 'MIC':
-          msg = '🎤 Voice Listening: Room Audio Active';
-          break;
-        case 'BUZZ':
-          msg = '🔔 Phone Buzzer Triggered by Maya!';
-          break;
-        default:
-          msg = '⚡ Command: $cmd';
-      }
-
-      ScaffoldMessenger.of(context).clearSnackBars();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(msg, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-          duration: const Duration(milliseconds: 1200),
-          backgroundColor: AppColors.surfaceHigh,
-          behavior: SnackBarBehavior.floating,
-          margin: const EdgeInsets.only(bottom: 80, left: 30, right: 300),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: AppColors.secondary, width: 1.5),
-          ),
-        ),
-      );
-    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Dynamic background energy & opacity per screen
+    // Dynamic background energy & opacity per screen (optimized for performance)
     double bgOpacity;
     double bgSpeed;
     double bgGlow;
-    int pCount;
+    const int pCount = 30; // Lightweight 30 particles for instant load time and 60fps
 
     switch (currentScreenIndex) {
       case 0: // Home Screen Hub
         bgOpacity = 0.90;
         bgSpeed = 1.0;
         bgGlow = 1.1;
-        pCount = 75;
         break;
       case 1: // Player Setup
         bgOpacity = 0.45;
         bgSpeed = 0.7;
         bgGlow = 0.7;
-        pCount = 60;
         break;
       case 2: // Game Select
         bgOpacity = 0.55;
         bgSpeed = 0.85;
         bgGlow = 0.85;
-        pCount = 65;
         break;
-      case 3: // AI Synthesis Screen (Question Generation)
+      case 3: // AI Synthesis Screen
         bgOpacity = 0.95;
-        bgSpeed = 1.4;
-        bgGlow = 1.4;
-        pCount = 85;
+        bgSpeed = 1.2;
+        bgGlow = 1.3;
         break;
-      case 4: // Gameplay Screen (Keep low opacity so text & choices remain crystal clear)
+      case 4: // Gameplay Screen
         bgOpacity = 0.28;
         bgSpeed = 0.65;
         bgGlow = 0.55;
-        pCount = 55;
         break;
       case 5: // AI Adaptation Screen
         bgOpacity = 0.85;
-        bgSpeed = 1.3;
-        bgGlow = 1.25;
-        pCount = 80;
+        bgSpeed = 1.2;
+        bgGlow = 1.2;
         break;
       case 6: // Winner Recap
         bgOpacity = 0.90;
         bgSpeed = 1.0;
         bgGlow = 1.3;
-        pCount = 75;
         break;
       default:
         bgOpacity = 0.85;
         bgSpeed = 1.0;
         bgGlow = 1.0;
-        pCount = 70;
     }
 
     return KeyboardListener(
@@ -290,6 +276,7 @@ class _MainTVViewportState extends State<MainTVViewport> {
             // 4. D-Pad TV Controller / Phone Buzzer Simulation Overlay
             DpadRemoteOverlay(
               isVisible: isRemoteOverlayVisible,
+              activeCommand: lastRemoteCommand != null ? '$lastRemoteCommand-$remoteCommandCounter' : null,
               onToggle: () => setState(() => isRemoteOverlayVisible = !isRemoteOverlayVisible),
               onCommand: _handleRemoteCommand,
             ),
@@ -300,40 +287,60 @@ class _MainTVViewportState extends State<MainTVViewport> {
   }
 
   Widget _buildCurrentScreen() {
+    final remoteTag = lastRemoteCommand != null ? '$lastRemoteCommand-$remoteCommandCounter' : null;
+
     switch (currentScreenIndex) {
       case 0:
         return HomeScreen(
           players: players,
+          sessionId: activeSessionId,
+          totalQuestionsCount: questions.length,
+          categories: categories,
+          lastRemoteCommand: remoteTag,
           onStartGame: () => setState(() => currentScreenIndex = 1),
           onContinueSession: () => setState(() => currentScreenIndex = 4),
+          onSelectCategory: (cat) {
+            _onCategoryChanged(cat);
+            setState(() => currentScreenIndex = 3);
+          },
         );
       case 1:
         return PlayerSetupScreen(
           players: players,
           onContinue: () => setState(() => currentScreenIndex = 2),
           onFocusPlayerChanged: (idx) {},
-          lastRemoteCommand: lastRemoteCommand != null ? '$lastRemoteCommand-$remoteCommandCounter' : null,
+          lastRemoteCommand: remoteTag,
         );
       case 2:
         return GameSelectScreen(
+          players: players,
+          categories: categories,
+          selectedCategory: selectedCategory,
+          selectedDifficulty: selectedDifficulty,
+          onCategoryChanged: _onCategoryChanged,
+          onDifficultyChanged: (diff) => setState(() => selectedDifficulty = diff),
           onCreateGame: () => setState(() => currentScreenIndex = 3),
-          lastRemoteCommand: lastRemoteCommand != null ? '$lastRemoteCommand-$remoteCommandCounter' : null,
+          lastRemoteCommand: remoteTag,
         );
       case 3:
         return AiSynthesisScreen(
           onStartGame: () => setState(() => currentScreenIndex = 4),
+          lastRemoteCommand: remoteTag,
         );
       case 4:
         return GameplayScreen(
           questions: questions,
           players: players,
+          sessionId: activeSessionId,
           initialQuestionIndex: gameplayQuestionIndex,
           onTriggerAdaptation: () => setState(() => currentScreenIndex = 5),
           onGameFinished: () => setState(() => currentScreenIndex = 6),
-          lastRemoteCommand: lastRemoteCommand != null ? '$lastRemoteCommand-$remoteCommandCounter' : null,
+          lastRemoteCommand: remoteTag,
           onScoreUpdate: (pts) {
             setState(() {
-              players[2].score += pts; // Add points to Maya
+              if (players.isNotEmpty) {
+                players[0].score += pts;
+              }
             });
           },
         );
@@ -343,16 +350,23 @@ class _MainTVViewportState extends State<MainTVViewport> {
             gameplayQuestionIndex = 1;
             currentScreenIndex = 4;
           }),
+          lastRemoteCommand: remoteTag,
         );
       case 6:
         return WinnerRecapScreen(
           players: players,
+          sessionId: activeSessionId,
           onPlayAgain: () => setState(() => currentScreenIndex = 3),
           onReturnHub: () => setState(() => currentScreenIndex = 0),
+          lastRemoteCommand: remoteTag,
         );
       default:
         return HomeScreen(
           players: players,
+          sessionId: activeSessionId,
+          totalQuestionsCount: questions.length,
+          categories: categories,
+          lastRemoteCommand: remoteTag,
           onStartGame: () => setState(() => currentScreenIndex = 1),
           onContinueSession: () => setState(() => currentScreenIndex = 4),
         );

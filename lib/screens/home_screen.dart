@@ -2,20 +2,76 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/player.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   final VoidCallback onStartGame;
   final VoidCallback onContinueSession;
   final List<Player> players;
+  final String? lastRemoteCommand;
+  final String sessionId;
+  final int totalQuestionsCount;
+  final List<Map<String, dynamic>> categories;
+  final ValueChanged<String>? onSelectCategory;
 
   const HomeScreen({
     super.key,
     required this.onStartGame,
     required this.onContinueSession,
     required this.players,
+    this.lastRemoteCommand,
+    this.sessionId = 'session_live_4892',
+    this.totalQuestionsCount = 32,
+    this.categories = const [],
+    this.onSelectCategory,
   });
 
   @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  int focusedActionIndex = 0; // 0: Start Game, 1: Continue Session, 2..: Quick modes
+
+  @override
+  void didUpdateWidget(HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.lastRemoteCommand != null && widget.lastRemoteCommand != oldWidget.lastRemoteCommand) {
+      final rawCmd = widget.lastRemoteCommand!;
+      final cmd = rawCmd.contains('-') ? rawCmd.split('-').first : rawCmd;
+      final maxActions = 2 + (widget.categories.isNotEmpty ? widget.categories.length.clamp(1, 4) : 4);
+
+      if (cmd == 'LEFT' || cmd == 'UP') {
+        setState(() {
+          focusedActionIndex = (focusedActionIndex - 1 + maxActions) % maxActions;
+        });
+      } else if (cmd == 'RIGHT' || cmd == 'DOWN') {
+        setState(() {
+          focusedActionIndex = (focusedActionIndex + 1) % maxActions;
+        });
+      } else if (cmd == 'OK') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (focusedActionIndex == 0) {
+            widget.onStartGame();
+          } else if (focusedActionIndex == 1) {
+            widget.onContinueSession();
+          } else {
+            final catIndex = focusedActionIndex - 2;
+            if (widget.categories.isNotEmpty && catIndex < widget.categories.length) {
+              final catName = widget.categories[catIndex]['name'] as String? ?? 'General Knowledge';
+              widget.onSelectCategory?.call(catName);
+            } else {
+              widget.onStartGame();
+            }
+          }
+        });
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final cleanSessionTag = widget.sessionId.replaceAll('session_', '').toUpperCase();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
       child: SingleChildScrollView(
@@ -50,8 +106,35 @@ class HomeScreen extends StatelessWidget {
                             const Icon(Icons.bolt, color: AppColors.secondary, size: 20),
                             const SizedBox(width: 8),
                             Text(
-                              'PARTY SESSION #4892 ACTIVE',
+                              'DATABASE SESSION #$cleanSessionTag ACTIVE',
                               style: AppStyles.labelMd(color: AppColors.secondary),
+                            ),
+                            const SizedBox(width: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.emeraldReady.withValues(alpha: 0.2),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: AppColors.emeraldReady.withValues(alpha: 0.5)),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    width: 6,
+                                    height: 6,
+                                    decoration: const BoxDecoration(
+                                      color: AppColors.emeraldReady,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    '${widget.totalQuestionsCount}+ DB Questions Live',
+                                    style: AppStyles.labelMd(color: AppColors.emeraldReady),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
@@ -71,60 +154,92 @@ class HomeScreen extends StatelessWidget {
                           style: AppStyles.bodyXl(),
                         ),
                         const SizedBox(height: 32),
-                        // D-Pad Remote Focus Button
+                        // D-Pad Remote Focus Buttons
                         Wrap(
                           spacing: 20,
                           runSpacing: 16,
                           children: [
-                            ElevatedButton(
-                              onPressed: onStartGame,
-                              style: ElevatedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
-                                backgroundColor: AppColors.surfaceLowest,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  side: BorderSide(
-                                    color: AppColors.secondary.withValues(alpha: 0.8),
-                                    width: 3,
-                                  ),
-                                ),
-                                shadowColor: AppColors.secondary,
-                                elevation: 12,
+                            // 0: Start Game
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: focusedActionIndex == 0
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColors.secondary.withValues(alpha: 0.6),
+                                          blurRadius: 25,
+                                        ),
+                                      ]
+                                    : [],
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'START A GAME',
-                                    style: AppStyles.headlineMd(color: AppColors.onSurface),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.secondary,
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: Text(
-                                      '[OK]',
-                                      style: AppStyles.labelMd(color: AppColors.onSecondaryContainer),
+                              child: ElevatedButton(
+                                onPressed: widget.onStartGame,
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+                                  backgroundColor: focusedActionIndex == 0 ? AppColors.surfaceHigh : AppColors.surfaceLowest,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                    side: BorderSide(
+                                      color: focusedActionIndex == 0 ? AppColors.secondary : AppColors.secondary.withValues(alpha: 0.5),
+                                      width: focusedActionIndex == 0 ? 3 : 1.5,
                                     ),
                                   ),
-                                ],
+                                  elevation: 12,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      'START A GAME',
+                                      style: AppStyles.headlineMd(color: AppColors.onSurface),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.secondary,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        '[OK]',
+                                        style: AppStyles.labelMd(color: AppColors.onSecondaryContainer),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                            OutlinedButton.icon(
-                              onPressed: onContinueSession,
-                              icon: const Icon(Icons.history, color: AppColors.onSurfaceVariant),
-                              label: Text(
-                                'CONTINUE SESSION',
-                                style: AppStyles.headlineMd(color: AppColors.onSurface),
+                            // 1: Continue Session
+                            AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: focusedActionIndex == 1
+                                    ? [
+                                        BoxShadow(
+                                          color: AppColors.primary.withValues(alpha: 0.6),
+                                          blurRadius: 25,
+                                        ),
+                                      ]
+                                    : [],
                               ),
-                              style: OutlinedButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-                                side: BorderSide(color: AppColors.outlineVariant.withValues(alpha: 0.5)),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
+                              child: OutlinedButton.icon(
+                                onPressed: widget.onContinueSession,
+                                icon: const Icon(Icons.history, color: AppColors.onSurfaceVariant),
+                                label: Text(
+                                  'CONTINUE SESSION',
+                                  style: AppStyles.headlineMd(color: AppColors.onSurface),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                                  side: BorderSide(
+                                    color: focusedActionIndex == 1 ? AppColors.primary : AppColors.outlineVariant.withValues(alpha: 0.5),
+                                    width: focusedActionIndex == 1 ? 3 : 1,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
                                 ),
                               ),
                             ),
@@ -173,7 +288,7 @@ class HomeScreen extends StatelessWidget {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text('CORTEX-9', style: AppStyles.labelLg()),
-                                        Text('Adaptive Co-Host', style: AppStyles.labelMd(color: AppColors.secondary), overflow: TextOverflow.ellipsis),
+                                        Text('Supabase Live Engine', style: AppStyles.labelMd(color: AppColors.secondary), overflow: TextOverflow.ellipsis),
                                       ],
                                     ),
                                   ),
@@ -198,7 +313,7 @@ class HomeScreen extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(width: 6),
-                                  Text('Live', style: AppStyles.labelMd()),
+                                  Text('Online', style: AppStyles.labelMd()),
                                 ],
                               ),
                             ),
@@ -208,8 +323,14 @@ class HomeScreen extends StatelessWidget {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Flexible(child: Text('CONNECTED PLAYERS (4)', style: AppStyles.labelMd(color: AppColors.onSurfaceVariant), overflow: TextOverflow.ellipsis)),
-                            Text('Phones Synced', style: AppStyles.labelMd(color: AppColors.primary)),
+                            Flexible(
+                              child: Text(
+                                'ACTIVE PLAYERS (${widget.players.length})',
+                                style: AppStyles.labelMd(color: AppColors.onSurfaceVariant),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Text('Remotes Synced', style: AppStyles.labelMd(color: AppColors.primary)),
                           ],
                         ),
                         const SizedBox(height: 12),
@@ -220,7 +341,7 @@ class HomeScreen extends StatelessWidget {
                           crossAxisSpacing: 10,
                           childAspectRatio: 1.8,
                           physics: const NeverScrollableScrollPhysics(),
-                          children: players.map((p) => _buildPlayerTile(p)).toList(),
+                          children: widget.players.map((p) => _buildPlayerTile(p)).toList(),
                         ),
                         const SizedBox(height: 16),
                         SingleChildScrollView(
@@ -232,11 +353,11 @@ class HomeScreen extends StatelessWidget {
                                 children: [
                                   const Icon(Icons.timelapse, size: 18, color: AppColors.onSurfaceVariant),
                                   const SizedBox(width: 6),
-                                  Text('Session: 32 min', style: AppStyles.bodyMd()),
+                                  Text('Session: Dynamic', style: AppStyles.bodyMd()),
                                 ],
                               ),
                               const SizedBox(width: 16),
-                              Text('Difficulty: Dynamic', style: AppStyles.labelMd(color: AppColors.secondary)),
+                              Text('Difficulty: Adaptive DB', style: AppStyles.labelMd(color: AppColors.secondary)),
                             ],
                           ),
                         ),
@@ -249,7 +370,7 @@ class HomeScreen extends StatelessWidget {
 
             const SizedBox(height: 28),
 
-            // QUICK MODES RAIL
+            // QUICK MODES / DYNAMIC DATABASE CATEGORIES RAIL
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -257,26 +378,16 @@ class HomeScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('SELECT EXPERIENCE', style: AppStyles.labelMd(color: AppColors.secondary)),
-                    Text('Quick Modes', style: AppStyles.headlineLg()),
+                    Text('Database Quiz Categories', style: AppStyles.headlineLg()),
                   ],
                 ),
-                Text('D-Pad: ◀ Left | Right ▶', style: AppStyles.labelMd(color: AppColors.onSurfaceVariant)),
+                Text('D-Pad: ◀ Left | Right ▶ • [OK] Select', style: AppStyles.labelMd(color: AppColors.onSurfaceVariant)),
               ],
             ),
 
             const SizedBox(height: 16),
 
-            Row(
-              children: [
-                _buildModeCard('Knowledge Quiz', 'Adaptive trivia tailored for all ages.', Icons.psychology, 'Popular', '15 Min', AppColors.secondary),
-                const SizedBox(width: 16),
-                _buildModeCard('Cinema Quotes', 'Audio & scene challenges from blockbusters.', Icons.movie, 'Audio Clips', '10 Min', AppColors.tertiary),
-                const SizedBox(width: 16),
-                _buildModeCard('Wildcard Rounds', 'Real-time rule shifts and surprise swaps.', Icons.shuffle, 'AI Chaos', '20 Min', AppColors.primary),
-                const SizedBox(width: 16),
-                _buildModeCard('Smart Mix', 'Automated family trivia synthesis.', Icons.auto_fix_high, 'Curated', 'Custom', AppColors.onSurface),
-              ],
-            ),
+            _buildDynamicCategoriesRail(),
 
             const SizedBox(height: 28),
 
@@ -327,8 +438,8 @@ class HomeScreen extends StatelessWidget {
                                 ],
                               ),
                               const SizedBox(height: 4),
-                              Text('Oceanic Wonders', style: AppStyles.headlineLg()),
-                              Text('5 min team challenge — Coordinate deep sea trivia to unlock Atlantis Badge.', style: AppStyles.bodyLg()),
+                              Text('Oceanic Wonders & Space Odyssey', style: AppStyles.headlineLg()),
+                              Text('5 min team challenge — Coordinate science and cinema trivia to unlock Atlantis Badge.', style: AppStyles.bodyLg()),
                             ],
                           ),
                         ),
@@ -337,7 +448,7 @@ class HomeScreen extends StatelessWidget {
                   ),
                   const SizedBox(width: 16),
                   ElevatedButton(
-                    onPressed: () {},
+                    onPressed: widget.onStartGame,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                       backgroundColor: AppColors.surfaceHighest,
@@ -346,7 +457,7 @@ class HomeScreen extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('View Challenge', style: AppStyles.labelLg()),
+                        Text('Launch Mission [OK]', style: AppStyles.labelLg()),
                         const SizedBox(width: 8),
                         const Icon(Icons.chevron_right),
                       ],
@@ -358,6 +469,93 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDynamicCategoriesRail() {
+    final list = widget.categories.isNotEmpty
+        ? widget.categories
+        : [
+            {'name': 'Cinema Clues', 'emoji': '🎬', 'questionCount': 7},
+            {'name': 'Science & Cosmos', 'emoji': '🚀', 'questionCount': 7},
+            {'name': 'Pop Culture & Music', 'emoji': '🎵', 'questionCount': 5},
+            {'name': 'Animation & Family', 'emoji': '✨', 'questionCount': 5},
+          ];
+
+    final displayList = list.take(4).toList();
+
+    return Row(
+      children: displayList.asMap().entries.map((entry) {
+        final idx = entry.key;
+        final cat = entry.value;
+        final name = cat['name'] as String? ?? 'General';
+        final emoji = cat['emoji'] as String? ?? '🧠';
+        final count = cat['questionCount'] as int? ?? 5;
+        final isFocused = focusedActionIndex == (idx + 2);
+
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(right: idx < displayList.length - 1 ? 16 : 0),
+            child: GestureDetector(
+              onTap: () {
+                setState(() => focusedActionIndex = idx + 2);
+                widget.onSelectCategory?.call(name);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isFocused ? AppColors.surfaceHigh : AppColors.surface.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isFocused ? AppColors.secondary : AppColors.outlineVariant.withValues(alpha: 0.3),
+                    width: isFocused ? 2.5 : 1,
+                  ),
+                  boxShadow: isFocused
+                      ? [
+                          BoxShadow(
+                            color: AppColors.secondary.withValues(alpha: 0.5),
+                            blurRadius: 20,
+                          )
+                        ]
+                      : [],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(emoji, style: const TextStyle(fontSize: 28)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.secondary.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text('$count Qs', style: AppStyles.labelMd(color: AppColors.secondary)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Text(name, style: AppStyles.headlineMd(), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 6),
+                    Text('Direct from Supabase database', style: AppStyles.bodyMd(), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Dynamic', style: AppStyles.bodyMd()),
+                        Text(isFocused ? '[OK] Select' : 'Tap to Play', style: AppStyles.labelMd(color: isFocused ? AppColors.secondary : AppColors.outline)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -388,50 +586,6 @@ class HomeScreen extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildModeCard(String title, String desc, IconData icon, String tag, String duration, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppColors.surface.withValues(alpha: 0.6),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Icon(icon, color: color, size: 32),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(tag, style: AppStyles.labelMd(color: color)),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(title, style: AppStyles.headlineMd()),
-            const SizedBox(height: 6),
-            Text(desc, style: AppStyles.bodyMd(), maxLines: 2, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('3-8 Players', style: AppStyles.bodyMd()),
-                Text(duration, style: AppStyles.labelMd(color: AppColors.onSurface)),
-              ],
-            ),
-          ],
-        ),
       ),
     );
   }

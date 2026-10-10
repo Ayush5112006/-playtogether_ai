@@ -4,10 +4,12 @@ import '../widgets/ai_orb.dart';
 
 class AiSynthesisScreen extends StatefulWidget {
   final VoidCallback onStartGame;
+  final String? lastRemoteCommand;
 
   const AiSynthesisScreen({
     super.key,
     required this.onStartGame,
+    this.lastRemoteCommand,
   });
 
   @override
@@ -16,6 +18,20 @@ class AiSynthesisScreen extends StatefulWidget {
 
 class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProviderStateMixin {
   int completedSteps = 4; // 80% Complete
+
+  @override
+  void didUpdateWidget(AiSynthesisScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.lastRemoteCommand != null && widget.lastRemoteCommand != oldWidget.lastRemoteCommand) {
+      final rawCmd = widget.lastRemoteCommand!;
+      final cmd = rawCmd.contains('-') ? rawCmd.split('-').first : rawCmd;
+      if (cmd == 'OK') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) widget.onStartGame();
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

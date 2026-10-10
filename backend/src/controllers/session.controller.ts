@@ -478,3 +478,54 @@ export async function getRecap(req: Request, res: Response): Promise<void> {
     },
   });
 }
+
+// -----------------------------------------------------------------------------
+// GET /api/questions — Retrieve all active questions directly from database
+// -----------------------------------------------------------------------------
+export async function getAllQuestions(req: Request, res: Response): Promise<void> {
+  const { category, difficulty, limit } = req.query;
+  const questions = await supabaseService.fetchQuestions({
+    category: typeof category === 'string' ? category : undefined,
+    difficulty: typeof difficulty === 'string' ? difficulty.toUpperCase() : undefined,
+    limit: limit ? parseInt(limit as string, 10) : 50,
+  });
+
+  const apiQuestions = questions.map((row) =>
+    supabaseService.questionRowToApi(row, true)
+  );
+
+  res.json({
+    success: true,
+    count: apiQuestions.length,
+    questions: apiQuestions,
+  });
+}
+
+// -----------------------------------------------------------------------------
+// GET /api/categories — Retrieve categories & count from database
+// -----------------------------------------------------------------------------
+export async function getCategories(_req: Request, res: Response): Promise<void> {
+  const questions = await supabaseService.fetchQuestions({ limit: 100 });
+  const categoryMap = new Map<string, { count: number; emoji: string }>();
+
+  for (const q of questions) {
+    const existing = categoryMap.get(q.category);
+    if (existing) {
+      existing.count++;
+    } else {
+      categoryMap.set(q.category, { count: 1, emoji: q.category_emoji || '🧠' });
+    }
+  }
+
+  const categories = Array.from(categoryMap.entries()).map(([name, data]) => ({
+    name,
+    emoji: data.emoji,
+    questionCount: data.count,
+  }));
+
+  res.json({
+    success: true,
+    categories,
+  });
+}
+
