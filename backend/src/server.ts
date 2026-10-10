@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { checkSupabaseConnection } from './config/supabase';
 
 dotenv.config();
 
@@ -14,13 +15,23 @@ app.use(express.json());
 const sessions = new Map<string, any>();
 
 // GET /api/health
-app.get('/api/health', (req: Request, res: Response) => {
+app.get('/api/health', async (req: Request, res: Response) => {
+  const dbHealth = await checkSupabaseConnection();
+
   res.json({
     status: 'ok',
     appName: 'PlayTogether AI Backend',
     timestamp: new Date().toISOString(),
+    database: {
+      provider: 'supabase',
+      configured: dbHealth.configured,
+      connected: dbHealth.connected,
+      status: dbHealth.status,
+      message: dbHealth.message,
+    },
   });
 });
+
 
 // POST /api/sessions
 app.post('/api/sessions', (req: Request, res: Response) => {
