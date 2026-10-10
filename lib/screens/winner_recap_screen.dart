@@ -20,7 +20,8 @@ class WinnerRecapScreen extends StatelessWidget {
     final sorted = List<Player>.from(players)..sort((a, b) => b.score.compareTo(a.score));
     final winner = sorted.isNotEmpty ? sorted.first : players.first;
 
-    return Padding(
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

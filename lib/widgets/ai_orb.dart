@@ -110,20 +110,26 @@ class _AiOrbWidgetState extends State<AiOrbWidget> with TickerProviderStateMixin
                       width: 2,
                     ),
                   ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.psychology,
-                        color: Colors.white,
-                        size: 42,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.psychology,
+                            color: Colors.white,
+                            size: widget.size * 0.22,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.label,
+                            style: AppStyles.labelMd(color: AppColors.secondaryFixed),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        widget.label,
-                        style: AppStyles.labelMd(color: AppColors.secondaryFixed),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),

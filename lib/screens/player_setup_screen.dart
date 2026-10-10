@@ -33,21 +33,28 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
         setState(() {
           focusedIndex = (focusedIndex - 1 + widget.players.length) % widget.players.length;
         });
-        widget.onFocusPlayerChanged(focusedIndex);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) widget.onFocusPlayerChanged(focusedIndex);
+        });
       } else if (cmd == 'RIGHT' || cmd == 'DOWN') {
         setState(() {
           focusedIndex = (focusedIndex + 1) % widget.players.length;
         });
-        widget.onFocusPlayerChanged(focusedIndex);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) widget.onFocusPlayerChanged(focusedIndex);
+        });
       } else if (cmd == 'OK') {
-        widget.onContinue();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) widget.onContinue();
+        });
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
       child: Column(
         children: [

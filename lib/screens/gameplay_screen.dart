@@ -12,6 +12,8 @@ class GameplayScreen extends StatefulWidget {
   final ValueChanged<int> onScoreUpdate;
   final String? lastRemoteCommand;
 
+  final int initialQuestionIndex;
+
   const GameplayScreen({
     super.key,
     required this.questions,
@@ -19,6 +21,7 @@ class GameplayScreen extends StatefulWidget {
     required this.onTriggerAdaptation,
     required this.onGameFinished,
     required this.onScoreUpdate,
+    this.initialQuestionIndex = 0,
     this.lastRemoteCommand,
   });
 
@@ -27,7 +30,7 @@ class GameplayScreen extends StatefulWidget {
 }
 
 class _GameplayScreenState extends State<GameplayScreen> {
-  int currentQuestionIndex = 0;
+  late int currentQuestionIndex;
   int selectedOptionIndex = 1; // Default D-Pad Up (Han Solo)
   int secondsRemaining = 12;
   Timer? _timer;
@@ -48,7 +51,9 @@ class _GameplayScreenState extends State<GameplayScreen> {
       } else if (cmd == 'RIGHT') {
         setState(() => selectedOptionIndex = 3);
       } else if (cmd == 'OK') {
-        _submitAnswer();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _submitAnswer();
+        });
       }
     }
   }
@@ -56,6 +61,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
   @override
   void initState() {
     super.initState();
+    currentQuestionIndex = widget.initialQuestionIndex;
     _startTimer();
   }
 
@@ -109,7 +115,8 @@ class _GameplayScreenState extends State<GameplayScreen> {
   Widget build(BuildContext context) {
     final currentQ = widget.questions[currentQuestionIndex];
 
-    return Padding(
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
       child: Column(
         children: [

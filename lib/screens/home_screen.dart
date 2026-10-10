@@ -218,7 +218,7 @@ class HomeScreen extends StatelessWidget {
                           shrinkWrap: true,
                           mainAxisSpacing: 10,
                           crossAxisSpacing: 10,
-                          childAspectRatio: 2.2,
+                          childAspectRatio: 1.8,
                           physics: const NeverScrollableScrollPhysics(),
                           children: players.map((p) => _buildPlayerTile(p)).toList(),
                         ),

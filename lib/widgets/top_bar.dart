@@ -6,6 +6,7 @@ class SharedTopBar extends StatelessWidget {
   final String title;
   final VoidCallback? onMicTap;
   final VoidCallback? onSettingsTap;
+  final ValueChanged<int>? onStepTap;
 
   const SharedTopBar({
     super.key,
@@ -13,6 +14,7 @@ class SharedTopBar extends StatelessWidget {
     this.title = 'PlayTogether AI',
     this.onMicTap,
     this.onSettingsTap,
+    this.onStepTap,
   });
 
   @override
@@ -172,12 +174,19 @@ class SharedTopBar extends StatelessWidget {
         ),
         const SizedBox(width: 6),
         for (int i = 0; i < steps.length; i++) ...[
-          Text(
-            steps[i],
-            style: AppStyles.labelMd(
-              color: i + 1 == currentStep
-                  ? AppColors.onSurface
-                  : (i + 1 < currentStep ? AppColors.secondary : AppColors.outlineVariant),
+          InkWell(
+            onTap: onStepTap != null ? () => onStepTap!(i + 1) : null,
+            borderRadius: BorderRadius.circular(4),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Text(
+                steps[i],
+                style: AppStyles.labelMd(
+                  color: i + 1 == currentStep
+                      ? AppColors.onSurface
+                      : (i + 1 < currentStep ? AppColors.secondary : AppColors.outlineVariant),
+                ),
+              ),
             ),
           ),
           if (i < steps.length - 1)

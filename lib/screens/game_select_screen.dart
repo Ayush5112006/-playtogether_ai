@@ -32,14 +32,17 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
       } else if (cmd == 'RIGHT' || cmd == 'DOWN') {
         setState(() => selectedCategoryIndex = (selectedCategoryIndex + 1) % 4);
       } else if (cmd == 'OK') {
-        widget.onCreateGame();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) widget.onCreateGame();
+        });
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -47,6 +47,7 @@ class MainTVViewport extends StatefulWidget {
 
 class _MainTVViewportState extends State<MainTVViewport> {
   int currentScreenIndex = 0; // 0: Hub, 1: Setup, 2: Select, 3: Synthesis, 4: Gameplay, 5: Adaptation, 6: Winner
+  int gameplayQuestionIndex = 0;
   late List<Player> players;
   late List<Question> questions;
   bool isRemoteOverlayVisible = true;
@@ -94,8 +95,10 @@ class _MainTVViewportState extends State<MainTVViewport> {
         if (currentScreenIndex == 0) {
           currentScreenIndex = 1;
         } else if (currentScreenIndex == 3) {
+          gameplayQuestionIndex = 0;
           currentScreenIndex = 4;
         } else if (currentScreenIndex == 5) { // Adaptation -> Gameplay next q
+          gameplayQuestionIndex = 1;
           currentScreenIndex = 4;
         } else if (currentScreenIndex == 6) { // Winner -> Hub
           currentScreenIndex = 0;
@@ -260,6 +263,14 @@ class _MainTVViewportState extends State<MainTVViewport> {
                 SharedTopBar(
                   currentStep: currentScreenIndex == 0 ? 0 : (currentScreenIndex > 4 ? 4 : currentScreenIndex),
                   onMicTap: () => _handleRemoteCommand('MIC'),
+                  onStepTap: (step) {
+                    setState(() {
+                      if (step == 1) currentScreenIndex = 1;
+                      if (step == 2) currentScreenIndex = 2;
+                      if (step == 3) currentScreenIndex = 3;
+                      if (step == 4) currentScreenIndex = 4;
+                    });
+                  },
                 ),
 
                 // Screen Viewport Canvas
@@ -316,6 +327,7 @@ class _MainTVViewportState extends State<MainTVViewport> {
         return GameplayScreen(
           questions: questions,
           players: players,
+          initialQuestionIndex: gameplayQuestionIndex,
           onTriggerAdaptation: () => setState(() => currentScreenIndex = 5),
           onGameFinished: () => setState(() => currentScreenIndex = 6),
           lastRemoteCommand: lastRemoteCommand != null ? '$lastRemoteCommand-$remoteCommandCounter' : null,
@@ -327,7 +339,10 @@ class _MainTVViewportState extends State<MainTVViewport> {
         );
       case 5:
         return AiAdaptationScreen(
-          onContinue: () => setState(() => currentScreenIndex = 4),
+          onContinue: () => setState(() {
+            gameplayQuestionIndex = 1;
+            currentScreenIndex = 4;
+          }),
         );
       case 6:
         return WinnerRecapScreen(
