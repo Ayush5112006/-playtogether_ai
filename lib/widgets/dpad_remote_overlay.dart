@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 
-class DpadRemoteOverlay extends StatelessWidget {
+class DpadRemoteOverlay extends StatefulWidget {
   final ValueChanged<String> onCommand;
   final bool isVisible;
   final VoidCallback onToggle;
@@ -16,73 +16,188 @@ class DpadRemoteOverlay extends StatelessWidget {
   });
 
   @override
+  State<DpadRemoteOverlay> createState() => _DpadRemoteOverlayState();
+}
+
+class _DpadRemoteOverlayState extends State<DpadRemoteOverlay> {
+  // Freeform draggable position (left, top)
+  Offset? _position;
+
+  Offset _getDefaultPosition(Size size) {
+    // Default to bottom-right corner, 20px margin
+    final double defaultX = (size.width - 280).clamp(20.0, size.width);
+    final double defaultY = (size.height - 460).clamp(20.0, size.height);
+    return Offset(defaultX, defaultY);
+  }
+
+  void _onPanUpdate(DragUpdateDetails details, Size size) {
+    setState(() {
+      final currentPos = _position ?? _getDefaultPosition(size);
+      final double newX = (currentPos.dx + details.delta.dx).clamp(10.0, (size.width - 270).clamp(10.0, size.width));
+      final double newY = (currentPos.dy + details.delta.dy).clamp(10.0, (size.height - 440).clamp(10.0, size.height));
+      _position = Offset(newX, newY);
+    });
+  }
+
+  void _resetPosition(Size size) {
+    setState(() {
+      _position = _getDefaultPosition(size);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (!isVisible) {
+    final screenSize = MediaQuery.of(context).size;
+    final currentPos = _position ?? _getDefaultPosition(screenSize);
+
+    if (!widget.isVisible) {
+      final minX = (currentPos.dx).clamp(20.0, (screenSize.width - 250).clamp(20.0, screenSize.width));
+      final minY = (currentPos.dy + 350).clamp(20.0, (screenSize.height - 80).clamp(20.0, screenSize.height));
+
       return Positioned(
-        right: 20,
-        bottom: 70,
-        child: FloatingActionButton.extended(
-          onPressed: onToggle,
-          backgroundColor: AppColors.secondaryContainer,
-          icon: const Icon(Icons.settings_remote, color: Colors.white),
-          label: Text(
-            'TV Remote & Phone Controller',
-            style: AppStyles.labelMd(color: Colors.white),
+        left: minX,
+        top: minY,
+        child: GestureDetector(
+          onPanUpdate: (details) {
+            setState(() {
+              final double newX = (minX + details.delta.dx).clamp(10.0, (screenSize.width - 240).clamp(10.0, screenSize.width));
+              final double newY = (minY + details.delta.dy).clamp(10.0, (screenSize.height - 70).clamp(10.0, screenSize.height));
+              _position = Offset(newX, newY - 350);
+            });
+          },
+          child: FloatingActionButton.extended(
+            onPressed: widget.onToggle,
+            backgroundColor: AppColors.secondaryContainer,
+            elevation: 12,
+            icon: const Icon(Icons.settings_remote, color: Colors.white),
+            label: Row(
+              children: [
+                const Icon(Icons.drag_indicator, size: 16, color: Colors.white70),
+                const SizedBox(width: 4),
+                Text(
+                  'Open Remote Controller',
+                  style: AppStyles.labelMd(color: Colors.white),
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
 
     return Positioned(
-      right: 20,
-      bottom: 70,
+      left: currentPos.dx,
+      top: currentPos.dy,
       child: Material(
-        elevation: 20,
-        borderRadius: BorderRadius.circular(20),
-        color: AppColors.surfaceHighest,
+        elevation: 24,
+        borderRadius: BorderRadius.circular(22),
+        color: Colors.transparent,
         child: Container(
           width: 260,
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: AppColors.surfaceHigh,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: AppColors.secondary.withValues(alpha: 0.5), width: 2),
+            color: AppColors.surfaceHigh.withValues(alpha: 0.98),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppColors.secondary, width: 2),
             boxShadow: [
               BoxShadow(
-                color: AppColors.secondary.withValues(alpha: 0.3),
-                blurRadius: 30,
+                color: AppColors.secondary.withValues(alpha: 0.4),
+                blurRadius: 35,
+                spreadRadius: 2,
+              ),
+              const BoxShadow(
+                color: Colors.black87,
+                blurRadius: 25,
+                offset: Offset(0, 10),
               )
             ],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
+              // DRAG HANDLE BAR (Move Controller anywhere)
+              GestureDetector(
+                onPanUpdate: (details) => _onPanUpdate(details, screenSize),
+                behavior: HitTestBehavior.opaque,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.move,
+                  child: Column(
                     children: [
-                      const Icon(Icons.settings_remote, color: AppColors.secondary, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Fire TV Controller',
-                        style: AppStyles.labelMd(color: AppColors.onSurface),
+                      Container(
+                        width: 44,
+                        height: 5,
+                        decoration: BoxDecoration(
+                          color: AppColors.secondary.withValues(alpha: 0.8),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Header Row
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.drag_indicator, color: AppColors.secondary, size: 18),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Fire TV Remote',
+                                style: AppStyles.labelMd(color: Colors.white),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              // Reset corner button
+                              Tooltip(
+                                message: 'Reset Position',
+                                child: InkWell(
+                                  onTap: () => _resetPosition(screenSize),
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(4),
+                                    child: Icon(Icons.refresh, color: AppColors.outline, size: 16),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              // Close/Minimize
+                              Tooltip(
+                                message: 'Minimize',
+                                child: InkWell(
+                                  onTap: widget.onToggle,
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: const Padding(
+                                    padding: EdgeInsets.all(4),
+                                    child: Icon(Icons.close, color: AppColors.outline, size: 18),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Hold & drag header to move',
+                            style: TextStyle(fontSize: 10, color: AppColors.secondary.withValues(alpha: 0.8)),
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: AppColors.outline, size: 20),
-                    onPressed: onToggle,
-                  ),
-                ],
+                ),
               ),
+
               const Divider(color: AppColors.outlineVariant, height: 16),
 
               // D-PAD Cross
               SizedBox(
-                width: 150,
-                height: 150,
+                width: 146,
+                height: 146,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
@@ -92,7 +207,7 @@ class DpadRemoteOverlay extends StatelessWidget {
                       child: _buildDpadButton(
                         icon: Icons.arrow_drop_up,
                         cmd: 'UP',
-                        onTap: () => onCommand('UP'),
+                        onTap: () => widget.onCommand('UP'),
                       ),
                     ),
                     // DOWN
@@ -101,7 +216,7 @@ class DpadRemoteOverlay extends StatelessWidget {
                       child: _buildDpadButton(
                         icon: Icons.arrow_drop_down,
                         cmd: 'DOWN',
-                        onTap: () => onCommand('DOWN'),
+                        onTap: () => widget.onCommand('DOWN'),
                       ),
                     ),
                     // LEFT
@@ -110,7 +225,7 @@ class DpadRemoteOverlay extends StatelessWidget {
                       child: _buildDpadButton(
                         icon: Icons.arrow_left,
                         cmd: 'LEFT',
-                        onTap: () => onCommand('LEFT'),
+                        onTap: () => widget.onCommand('LEFT'),
                       ),
                     ),
                     // RIGHT
@@ -119,27 +234,27 @@ class DpadRemoteOverlay extends StatelessWidget {
                       child: _buildDpadButton(
                         icon: Icons.arrow_right,
                         cmd: 'RIGHT',
-                        onTap: () => onCommand('RIGHT'),
+                        onTap: () => widget.onCommand('RIGHT'),
                       ),
                     ),
                     // OK CENTER
                     GestureDetector(
-                      onTap: () => onCommand('OK'),
+                      onTap: () => widget.onCommand('OK'),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 150),
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: (activeCommand?.startsWith('OK') ?? false)
+                          color: (widget.activeCommand?.startsWith('OK') ?? false)
                               ? AppColors.primary
                               : AppColors.secondaryContainer,
                           boxShadow: [
                             BoxShadow(
-                              color: (activeCommand?.startsWith('OK') ?? false)
+                              color: (widget.activeCommand?.startsWith('OK') ?? false)
                                   ? AppColors.primary.withValues(alpha: 0.9)
                                   : AppColors.secondary.withValues(alpha: 0.5),
-                              blurRadius: (activeCommand?.startsWith('OK') ?? false) ? 20 : 10,
+                              blurRadius: (widget.activeCommand?.startsWith('OK') ?? false) ? 20 : 10,
                             )
                           ],
                         ),
@@ -147,7 +262,7 @@ class DpadRemoteOverlay extends StatelessWidget {
                           child: Text(
                             'OK',
                             style: AppStyles.labelMd(
-                              color: (activeCommand?.startsWith('OK') ?? false)
+                              color: (widget.activeCommand?.startsWith('OK') ?? false)
                                   ? Colors.white
                                   : AppColors.onSecondaryContainer,
                             ),
@@ -159,7 +274,7 @@ class DpadRemoteOverlay extends StatelessWidget {
                 ),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 14),
 
               // Action buttons (MIC, BACK, PHONE BUZZER)
               Row(
@@ -170,21 +285,21 @@ class DpadRemoteOverlay extends StatelessWidget {
                     label: 'Voice [M]',
                     cmd: 'MIC',
                     color: AppColors.primary,
-                    onTap: () => onCommand('MIC'),
+                    onTap: () => widget.onCommand('MIC'),
                   ),
                   _buildActionButton(
                     icon: Icons.arrow_back,
                     label: 'Back [Esc]',
                     cmd: 'BACK',
                     color: AppColors.tertiary,
-                    onTap: () => onCommand('BACK'),
+                    onTap: () => widget.onCommand('BACK'),
                   ),
                   _buildActionButton(
                     icon: Icons.bolt,
                     label: 'Buzz [B]',
                     cmd: 'BUZZ',
                     color: AppColors.amberWarning,
-                    onTap: () => onCommand('BUZZ'),
+                    onTap: () => widget.onCommand('BUZZ'),
                   ),
                 ],
               ),
@@ -208,7 +323,7 @@ class DpadRemoteOverlay extends StatelessWidget {
   }
 
   Widget _buildDpadButton({required IconData icon, required String cmd, required VoidCallback onTap}) {
-    final isActive = activeCommand != null && activeCommand!.startsWith(cmd);
+    final isActive = widget.activeCommand != null && widget.activeCommand!.startsWith(cmd);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -248,7 +363,7 @@ class DpadRemoteOverlay extends StatelessWidget {
     required Color color,
     required VoidCallback onTap,
   }) {
-    final isActive = activeCommand != null && activeCommand!.startsWith(cmd);
+    final isActive = widget.activeCommand != null && widget.activeCommand!.startsWith(cmd);
     return Column(
       children: [
         InkWell(
