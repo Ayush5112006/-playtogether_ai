@@ -9,35 +9,31 @@
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 
 // -----------------------------------------------------------------------------
-// Option — matches Flutter Option class (lib/models/question.dart L1-L18)
-// JSON keys: { "id": "A", "text": "Luke Skywalker" }
+// Option — matches Flutter Option class (lib/models/question.dart)
 // -----------------------------------------------------------------------------
 export interface QuestionOption {
-  id: string;   // "A", "B", "C", or "D"
+  id: string; // "A", "B", "C", or "D"
   text: string;
 }
 
 // -----------------------------------------------------------------------------
-// Question — matches Flutter Question.fromJson (lib/models/question.dart L45-L61)
-// API response JSON keys: id, category, categoryEmoji, difficulty, question,
-//   quoteHighlight, options, correctOptionId, explanation, pointValue
+// Question — matches Flutter Question.fromJson (lib/models/question.dart)
 // -----------------------------------------------------------------------------
 export interface Question {
   id: string;
   category: string;
   categoryEmoji: string;
   difficulty: Difficulty;
-  question: string;          // API key is "question", Flutter reads as questionText
+  question: string;
   quoteHighlight: string;
   options: QuestionOption[];
-  correctOptionId: string;   // "A" | "B" | "C" | "D"
+  correctOptionId?: string; // Masked or empty before answer submission for security
   explanation: string;
   pointValue: number;
 }
 
 // -----------------------------------------------------------------------------
-// Question DB Row — maps Supabase `questions` table columns to TypeScript
-// The DB uses snake_case; API responses use camelCase.
+// Question DB Row — maps Supabase `questions` table columns
 // -----------------------------------------------------------------------------
 export interface QuestionRow {
   id: string;
@@ -46,7 +42,7 @@ export interface QuestionRow {
   difficulty: Difficulty;
   question: string;
   quote_highlight: string;
-  options: QuestionOption[];   // JSONB array
+  options: QuestionOption[];
   correct_option_id: string;
   explanation: string;
   point_value: number;
@@ -58,9 +54,9 @@ export interface QuestionRow {
 // GameSettings — matches Flutter GameSettings (lib/models/game_settings.dart)
 // -----------------------------------------------------------------------------
 export interface GameSettings {
-  difficulty?: string;         // "Easy", "Medium", "Hard", "Adaptive"
-  durationMinutes?: number;    // 5, 10, 15
-  category?: string;           // "General Trivia", "Movie Guess", etc.
+  difficulty?: string; // "Easy", "Medium", "Hard", "Adaptive"
+  durationMinutes?: number; // 5, 10, 15
+  category?: string; // "General Trivia", "Cinema Clues", etc.
   familyFriendly?: boolean;
 }
 
@@ -92,8 +88,8 @@ export interface SessionRow {
 // Player — matches Flutter Player model (lib/models/player.dart)
 // -----------------------------------------------------------------------------
 export interface Player {
-  id: string;             // UUID from session_players table
-  playerId: string;       // logical player ID e.g. "p1"
+  id: string;
+  playerId: string;
   sessionId: string;
   name: string;
   avatarName: string;
@@ -151,13 +147,25 @@ export interface PlayerAnswerRow {
 
 // -----------------------------------------------------------------------------
 // GameRecap — matches Flutter SessionRecap (lib/models/recap.dart)
-// and POST /api/sessions/:id/recap response
 // -----------------------------------------------------------------------------
 export interface GameRecap {
   hostInsight: string;
   familySynergyPercent: string;
   avgSpeedSec: string;
   nextGameRecommendation: string;
+  winner?: {
+    playerId: string;
+    name: string;
+    score: number;
+  };
+  standings?: Array<{
+    rank: number;
+    playerId: string;
+    name: string;
+    score: number;
+    accuracy: string;
+    streak: number;
+  }>;
 }
 
 export interface GameRecapRow {
@@ -172,7 +180,7 @@ export interface GameRecapRow {
 }
 
 // -----------------------------------------------------------------------------
-// API Request Bodies — match what Flutter api_service.dart sends
+// API Request Bodies
 // -----------------------------------------------------------------------------
 export interface CreateSessionRequest {
   players?: any[];
@@ -193,29 +201,17 @@ export interface SubmitAnswerRequest {
 }
 
 export interface AdaptDifficultyRequest {
-  recentAccuracy: number;
+  recentAccuracy?: number;
 }
 
 // -----------------------------------------------------------------------------
-// API Response Envelopes — match existing response contracts
+// API Response Envelopes
 // -----------------------------------------------------------------------------
 export interface ApiResponse<T = any> {
   success: boolean;
   error?: string;
+  message?: string;
   [key: string]: any;
-}
-
-export interface HealthResponse {
-  status: string;
-  appName: string;
-  timestamp: string;
-  database: {
-    provider: string;
-    configured: boolean;
-    connected: boolean;
-    status: string;
-    message: string;
-  };
 }
 
 export interface CreateSessionResponse {
