@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import { supabase } from './config/supabase';
 
 dotenv.config();
 
@@ -23,25 +24,61 @@ app.get('/api/health', (req: Request, res: Response) => {
 });
 
 // POST /api/sessions
-app.post('/api/sessions', (req: Request, res: Response) => {
-  const { players, settings } = req.body;
-  const sessionId = 'session_' + Math.floor(1000 + Math.random() * 9000);
+app.post('/api/sessions', async (req: Request, res: Response) => {
+  try {
+    const {
+      mode = 'COOPERATIVE',
+      difficulty = 'MEDIUM',
+      durationMinutes = 10,
+      players = [],
+      settings = {},
+    } = req.body;
 
-  const session = {
-    id: sessionId,
-    players: players || [],
-    settings: settings || {},
-    currentRound: 1,
-    createdAt: new Date(),
-  };
+    const { data, error } = await supabase
+      .from('game_sessions')
+      .insert({
+        mode,
+        difficulty,
+        duration_minutes: durationMinutes,
+        status: 'active',
+      })
+      .select()
+      .single();
 
-  sessions.set(sessionId, session);
+    if (error) {
+      console.error('Supabase session creation error:', error.message);
 
-  res.status(201).json({
-    success: true,
-    sessionId: sessionId,
-    session: session,
-  });
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to create game session',
+      });
+    }
+
+    const session = {
+      id: data.id,
+      players,
+      settings,
+      currentRound: 1,
+      createdAt: new Date().toISOString(),
+      mode: data.mode,
+      difficulty: data.difficulty,
+      durationMinutes: data.duration_minutes,
+      status: data.status,
+    };
+
+    return res.status(201).json({
+      success: true,
+      sessionId: data.id,
+      session,
+    });
+  } catch (error) {
+    console.error('Session creation error:', error);
+
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
 });
 
 // POST /api/sessions/:id/question
