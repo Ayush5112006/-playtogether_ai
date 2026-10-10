@@ -1,4 +1,4 @@
-#** playtogether_ai**
+# ** playtogether_ai**
 
 A new Flutter project.
 
