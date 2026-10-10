@@ -25,7 +25,8 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
   void didUpdateWidget(GameSelectScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.lastRemoteCommand != null && widget.lastRemoteCommand != oldWidget.lastRemoteCommand) {
-      final cmd = widget.lastRemoteCommand!;
+      final rawCmd = widget.lastRemoteCommand!;
+      final cmd = rawCmd.contains('-') ? rawCmd.split('-').first : rawCmd;
       if (cmd == 'LEFT' || cmd == 'UP') {
         setState(() => selectedCategoryIndex = (selectedCategoryIndex - 1 + 4) % 4);
       } else if (cmd == 'RIGHT' || cmd == 'DOWN') {

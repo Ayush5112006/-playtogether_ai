@@ -37,7 +37,8 @@ class _GameplayScreenState extends State<GameplayScreen> {
   void didUpdateWidget(GameplayScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.lastRemoteCommand != null && widget.lastRemoteCommand != oldWidget.lastRemoteCommand) {
-      final cmd = widget.lastRemoteCommand!;
+      final rawCmd = widget.lastRemoteCommand!;
+      final cmd = rawCmd.contains('-') ? rawCmd.split('-').first : rawCmd;
       if (cmd == 'LEFT') {
         setState(() => selectedOptionIndex = 0);
       } else if (cmd == 'UP') {

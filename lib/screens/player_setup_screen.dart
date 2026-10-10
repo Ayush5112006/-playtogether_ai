@@ -6,12 +6,14 @@ class PlayerSetupScreen extends StatefulWidget {
   final List<Player> players;
   final VoidCallback onContinue;
   final ValueChanged<int> onFocusPlayerChanged;
+  final String? lastRemoteCommand;
 
   const PlayerSetupScreen({
     super.key,
     required this.players,
     required this.onContinue,
     required this.onFocusPlayerChanged,
+    this.lastRemoteCommand,
   });
 
   @override
@@ -20,6 +22,28 @@ class PlayerSetupScreen extends StatefulWidget {
 
 class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
   int focusedIndex = 2; // Maya focused by default
+
+  @override
+  void didUpdateWidget(PlayerSetupScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.lastRemoteCommand != null && widget.lastRemoteCommand != oldWidget.lastRemoteCommand) {
+      final rawCmd = widget.lastRemoteCommand!;
+      final cmd = rawCmd.contains('-') ? rawCmd.split('-').first : rawCmd;
+      if (cmd == 'LEFT' || cmd == 'UP') {
+        setState(() {
+          focusedIndex = (focusedIndex - 1 + widget.players.length) % widget.players.length;
+        });
+        widget.onFocusPlayerChanged(focusedIndex);
+      } else if (cmd == 'RIGHT' || cmd == 'DOWN') {
+        setState(() {
+          focusedIndex = (focusedIndex + 1) % widget.players.length;
+        });
+        widget.onFocusPlayerChanged(focusedIndex);
+      } else if (cmd == 'OK') {
+        widget.onContinue();
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

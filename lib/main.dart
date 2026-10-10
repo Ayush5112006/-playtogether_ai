@@ -49,8 +49,41 @@ class _MainTVViewportState extends State<MainTVViewport> {
   int currentScreenIndex = 0; // 0: Hub, 1: Setup, 2: Select, 3: Synthesis, 4: Gameplay, 5: Adaptation, 6: Winner
   late List<Player> players;
   late List<Question> questions;
+  bool isRemoteOverlayVisible = true;
+  final FocusNode _focusNode = FocusNode();
   String? lastRemoteCommand;
   int remoteCommandCounter = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    players = Player.getDefaultPlayers();
+    questions = Question.getSampleQuestions();
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleKeyEvent(KeyEvent event) {
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.arrowRight || event.logicalKey == LogicalKeyboardKey.keyD) {
+        _handleRemoteCommand('RIGHT');
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowLeft || event.logicalKey == LogicalKeyboardKey.keyA) {
+        _handleRemoteCommand('LEFT');
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowUp || event.logicalKey == LogicalKeyboardKey.keyW) {
+        _handleRemoteCommand('UP');
+      } else if (event.logicalKey == LogicalKeyboardKey.arrowDown || event.logicalKey == LogicalKeyboardKey.keyS) {
+        _handleRemoteCommand('DOWN');
+      } else if (event.logicalKey == LogicalKeyboardKey.enter || event.logicalKey == LogicalKeyboardKey.space) {
+        _handleRemoteCommand('OK');
+      } else if (event.logicalKey == LogicalKeyboardKey.escape || event.logicalKey == LogicalKeyboardKey.backspace) {
+        _handleRemoteCommand('BACK');
+      }
+    }
+  }
 
   void _handleRemoteCommand(String cmd) {
     setState(() {
@@ -58,8 +91,8 @@ class _MainTVViewportState extends State<MainTVViewport> {
       lastRemoteCommand = cmd;
 
       if (cmd == 'OK') {
-        if (currentScreenIndex < 2) {
-          currentScreenIndex++;
+        if (currentScreenIndex == 0) {
+          currentScreenIndex = 1;
         } else if (currentScreenIndex == 3) {
           currentScreenIndex = 4;
         } else if (currentScreenIndex == 5) { // Adaptation -> Gameplay next q
@@ -268,10 +301,12 @@ class _MainTVViewportState extends State<MainTVViewport> {
           players: players,
           onContinue: () => setState(() => currentScreenIndex = 2),
           onFocusPlayerChanged: (idx) {},
+          lastRemoteCommand: lastRemoteCommand != null ? '$lastRemoteCommand-$remoteCommandCounter' : null,
         );
       case 2:
         return GameSelectScreen(
           onCreateGame: () => setState(() => currentScreenIndex = 3),
+          lastRemoteCommand: lastRemoteCommand != null ? '$lastRemoteCommand-$remoteCommandCounter' : null,
         );
       case 3:
         return AiSynthesisScreen(
@@ -283,6 +318,7 @@ class _MainTVViewportState extends State<MainTVViewport> {
           players: players,
           onTriggerAdaptation: () => setState(() => currentScreenIndex = 5),
           onGameFinished: () => setState(() => currentScreenIndex = 6),
+          lastRemoteCommand: lastRemoteCommand != null ? '$lastRemoteCommand-$remoteCommandCounter' : null,
           onScoreUpdate: (pts) {
             setState(() {
               players[2].score += pts; // Add points to Maya
