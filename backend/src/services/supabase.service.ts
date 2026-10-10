@@ -21,10 +21,10 @@ import {
 // -----------------------------------------------------------------------------
 
 /**
- * Converts a Supabase `questions` row into the camelCase API Question object
- * expected by Flutter's Question.fromJson.
+ * Converts a Supabase `questions` row into the camelCase API Question object.
+ * By default, masks `correctOptionId` before answer submission to prevent client cheating.
  */
-export function questionRowToApi(row: QuestionRow): Question {
+export function questionRowToApi(row: QuestionRow, exposeCorrectAnswer = false): Question {
   return {
     id: row.id,
     category: row.category,
@@ -33,7 +33,8 @@ export function questionRowToApi(row: QuestionRow): Question {
     question: row.question,
     quoteHighlight: row.quote_highlight,
     options: row.options as QuestionOption[],
-    correctOptionId: row.correct_option_id,
+    // If not exposing, leave empty to preserve security over the network
+    correctOptionId: exposeCorrectAnswer ? row.correct_option_id : '',
     explanation: row.explanation,
     pointValue: row.point_value,
   };
@@ -45,14 +46,14 @@ export function questionRowToApi(row: QuestionRow): Question {
 
 /**
  * Fetch questions from the database, filtered by difficulty and/or category.
- * Excludes questions already answered in this session.
+ * Supports excluding question IDs already answered in the current session.
  */
 export async function fetchQuestions(params: {
   difficulty?: string;
   category?: string;
   excludeIds?: string[];
   limit?: number;
-}): Promise<Question[]> {
+}): Promise<QuestionRow[]> {
   const client = getSupabaseClient();
   if (!client) return [];
 
@@ -76,13 +77,13 @@ export async function fetchQuestions(params: {
   const { data, error } = await query;
   if (error || !data) return [];
 
-  return (data as QuestionRow[]).map(questionRowToApi);
+  return data as QuestionRow[];
 }
 
 /**
- * Fetch a single question by its ID.
+ * Fetch a single question by its ID directly from database.
  */
-export async function fetchQuestionById(questionId: string): Promise<Question | null> {
+export async function fetchQuestionById(questionId: string): Promise<QuestionRow | null> {
   const client = getSupabaseClient();
   if (!client) return null;
 
@@ -93,7 +94,7 @@ export async function fetchQuestionById(questionId: string): Promise<Question | 
     .single();
 
   if (error || !data) return null;
-  return questionRowToApi(data as QuestionRow);
+  return data as QuestionRow;
 }
 
 // -----------------------------------------------------------------------------
@@ -101,34 +102,7 @@ export async function fetchQuestionById(questionId: string): Promise<Question | 
 // -----------------------------------------------------------------------------
 
 /**
- * Create a new session in the database.
- */
-export async function createSession(session: {
-  id: string;
-  settings: any;
-  currentDifficulty?: string;
-}): Promise<SessionRow | null> {
-  const client = getSupabaseClient();
-  if (!client) return null;
-
-  const { data, error } = await client
-    .from('sessions')
-    .insert({
-      id: session.id,
-      status: 'active',
-      current_difficulty: session.currentDifficulty || 'MEDIUM',
-      settings: session.settings || {},
-      current_round: 1,
-    })
-    .select()
-    .single();
-
-  if (error || !data) return null;
-  return data as SessionRow;
-}
-
-/**
- * Fetch a session by ID.
+ * Fetch a session by its ID.
  */
 export async function fetchSession(sessionId: string): Promise<SessionRow | null> {
   const client = getSupabaseClient();
@@ -142,6 +116,81 @@ export async function fetchSession(sessionId: string): Promise<SessionRow | null
 
   if (error || !data) return null;
   return data as SessionRow;
+}
+
+/**
+ * Deletes a session (used for rollback if player creation fails).
+ */
+export async function deleteSession(sessionId: string): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  const { error } = await client.from('sessions').delete().eq('id', sessionId);
+  return !error;
+}
+
+/**
+ * Create a session with players atomically.
+ * Tries the PostgreSQL RPC function first. If not installed, performs
+ * safe insert with rollback on failure so no partial session remains.
+ */
+export async function createSessionWithPlayers(
+  sessionId: string,
+  settings: any,
+  initialDifficulty: Difficulty,
+  players: Array<{ playerId: string; name: string; avatarName?: string }>
+): Promise<{ success: boolean; error?: string }> {
+  const client = getSupabaseClient();
+  if (!client) return { success: false, error: 'Supabase client not available' };
+
+  // 1. Try atomic RPC function
+  const { data: rpcData, error: rpcError } = await client.rpc('create_session_with_players', {
+    p_session_id: sessionId,
+    p_settings: settings || {},
+    p_initial_difficulty: initialDifficulty,
+    p_players: players,
+  });
+
+  if (!rpcError && rpcData?.success) {
+    return { success: true };
+  }
+
+  // 2. Fallback to client-side insert with rollback on failure
+  const { error: sessionError } = await client.from('sessions').insert({
+    id: sessionId,
+    status: 'active',
+    current_difficulty: initialDifficulty,
+    settings: settings || {},
+    current_round: 1,
+  });
+
+  if (sessionError) {
+    return { success: false, error: sessionError.message };
+  }
+
+  // Insert players
+  const playerRows = players.map((p) => ({
+    session_id: sessionId,
+    player_id: p.playerId,
+    name: p.name,
+    avatar_name: p.avatarName || p.name,
+    role_tag: 'Player',
+    score: 0,
+    streak: 0,
+    best_streak: 0,
+    correct_count: 0,
+    total_answered: 0,
+  }));
+
+  const { error: playersError } = await client.from('session_players').insert(playerRows);
+
+  if (playersError) {
+    // Rollback session creation so partial session is never left behind
+    await deleteSession(sessionId);
+    return { success: false, error: `Failed to insert players: ${playersError.message}` };
+  }
+
+  return { success: true };
 }
 
 /**
@@ -162,44 +211,30 @@ export async function updateSessionDifficulty(
   return !error;
 }
 
+/**
+ * Update session settings JSONB (e.g. for surprise round tracking).
+ */
+export async function updateSessionSettings(
+  sessionId: string,
+  settings: any
+): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  const { error } = await client
+    .from('sessions')
+    .update({ settings })
+    .eq('id', sessionId);
+
+  return !error;
+}
+
 // -----------------------------------------------------------------------------
 // Session Players
 // -----------------------------------------------------------------------------
 
 /**
- * Add players to a session.
- */
-export async function addPlayersToSession(
-  sessionId: string,
-  players: Array<{ playerId: string; name: string; avatarName?: string }>
-): Promise<SessionPlayerRow[]> {
-  const client = getSupabaseClient();
-  if (!client) return [];
-
-  const rows = players.map((p) => ({
-    session_id: sessionId,
-    player_id: p.playerId,
-    name: p.name,
-    avatar_name: p.avatarName || p.name,
-    role_tag: 'Player',
-    score: 0,
-    streak: 0,
-    best_streak: 0,
-    correct_count: 0,
-    total_answered: 0,
-  }));
-
-  const { data, error } = await client
-    .from('session_players')
-    .insert(rows)
-    .select();
-
-  if (error || !data) return [];
-  return data as SessionPlayerRow[];
-}
-
-/**
- * Get all players in a session.
+ * Get all players in a session ordered by score descending.
  */
 export async function getSessionPlayers(sessionId: string): Promise<SessionPlayerRow[]> {
   const client = getSupabaseClient();
@@ -216,45 +251,24 @@ export async function getSessionPlayers(sessionId: string): Promise<SessionPlaye
 }
 
 /**
- * Update a player's score, streak, and answer counts.
+ * Fetch a single player in a session.
  */
-export async function updatePlayerStats(
+export async function getSessionPlayer(
   sessionId: string,
-  playerId: string,
-  updates: {
-    scoreDelta: number;
-    isCorrect: boolean;
-  }
-): Promise<boolean> {
+  playerId: string
+): Promise<SessionPlayerRow | null> {
   const client = getSupabaseClient();
-  if (!client) return false;
+  if (!client) return null;
 
-  // Fetch current player state
-  const { data: player, error: fetchErr } = await client
+  const { data, error } = await client
     .from('session_players')
     .select('*')
     .eq('session_id', sessionId)
     .eq('player_id', playerId)
     .single();
 
-  if (fetchErr || !player) return false;
-
-  const newStreak = updates.isCorrect ? (player.streak + 1) : 0;
-  const newBestStreak = Math.max(player.best_streak, newStreak);
-
-  const { error } = await client
-    .from('session_players')
-    .update({
-      score: player.score + updates.scoreDelta,
-      streak: newStreak,
-      best_streak: newBestStreak,
-      correct_count: player.correct_count + (updates.isCorrect ? 1 : 0),
-      total_answered: player.total_answered + 1,
-    })
-    .eq('session_id', sessionId)
-    .eq('player_id', playerId);
-
-  return !error;
+  if (error || !data) return null;
+  return data as SessionPlayerRow;
 }
 
 // -----------------------------------------------------------------------------
@@ -262,40 +276,119 @@ export async function updatePlayerStats(
 // -----------------------------------------------------------------------------
 
 /**
- * Record a player's answer in the database.
+ * Checks if a player has already submitted an answer for a specific question in this session.
  */
-export async function recordAnswer(answer: {
+export async function checkAnswerAlreadySubmitted(
+  sessionId: string,
+  playerId: string,
+  questionId: string
+): Promise<boolean> {
+  const client = getSupabaseClient();
+  if (!client) return false;
+
+  const { data, error } = await client
+    .from('player_answers')
+    .select('id')
+    .eq('session_id', sessionId)
+    .eq('player_id', playerId)
+    .eq('question_id', questionId)
+    .limit(1);
+
+  if (error || !data) return false;
+  return data.length > 0;
+}
+
+/**
+ * Submits an answer atomically, updating score and streak.
+ * Tries RPC function `submit_player_answer` first, falls back to safe client sequence.
+ */
+export async function submitPlayerAnswerAtomic(params: {
   sessionId: string;
   playerId: string;
   questionId: string;
   selectedOptionId: string;
   isCorrect: boolean;
   pointsEarned: number;
-  responseTimeSeconds?: number;
-}): Promise<PlayerAnswerRow | null> {
+  responseTimeSeconds: number;
+  currentStreak: number;
+  currentBestStreak: number;
+  currentScore: number;
+  currentCorrectCount: number;
+  currentTotalAnswered: number;
+}): Promise<{ success: boolean; error?: string; isDuplicate?: boolean }> {
   const client = getSupabaseClient();
-  if (!client) return null;
+  if (!client) return { success: false, error: 'Database unavailable' };
 
-  const { data, error } = await client
-    .from('player_answers')
-    .insert({
-      session_id: answer.sessionId,
-      player_id: answer.playerId,
-      question_id: answer.questionId,
-      selected_option_id: answer.selectedOptionId,
-      is_correct: answer.isCorrect,
-      points_earned: answer.pointsEarned,
-      response_time_seconds: answer.responseTimeSeconds || 0,
+  // 1. Try atomic RPC
+  const { data: rpcData, error: rpcError } = await client.rpc('submit_player_answer', {
+    p_session_id: params.sessionId,
+    p_player_id: params.playerId,
+    p_question_id: params.questionId,
+    p_selected_option_id: params.selectedOptionId,
+    p_is_correct: params.isCorrect,
+    p_points_earned: params.pointsEarned,
+    p_response_time_seconds: params.responseTimeSeconds,
+  });
+
+  if (!rpcError && rpcData) {
+    if (rpcData.error === 'DuplicateSubmission') {
+      return { success: false, isDuplicate: true, error: rpcData.message };
+    }
+    if (rpcData.success) {
+      return { success: true };
+    }
+  }
+
+  // 2. Client-side safe execution: check duplicate first
+  const isDuplicate = await checkAnswerAlreadySubmitted(
+    params.sessionId,
+    params.playerId,
+    params.questionId
+  );
+  if (isDuplicate) {
+    return { success: false, isDuplicate: true, error: 'Answer already submitted.' };
+  }
+
+  // Record answer in player_answers
+  const { error: insertErr } = await client.from('player_answers').insert({
+    session_id: params.sessionId,
+    player_id: params.playerId,
+    question_id: params.questionId,
+    selected_option_id: params.selectedOptionId,
+    is_correct: params.isCorrect,
+    points_earned: params.pointsEarned,
+    response_time_seconds: params.responseTimeSeconds,
+  });
+
+  if (insertErr) {
+    return { success: false, error: insertErr.message };
+  }
+
+  // Update session_players stats
+  const newStreak = params.isCorrect ? params.currentStreak + 1 : 0;
+  const newBestStreak = Math.max(params.currentBestStreak, newStreak);
+
+  const { error: updateErr } = await client
+    .from('session_players')
+    .update({
+      score: params.currentScore + params.pointsEarned,
+      streak: newStreak,
+      best_streak: newBestStreak,
+      correct_count: params.currentCorrectCount + (params.isCorrect ? 1 : 0),
+      total_answered: params.currentTotalAnswered + 1,
     })
-    .select()
-    .single();
+    .eq('session_id', params.sessionId)
+    .eq('player_id', params.playerId);
 
-  if (error || !data) return null;
-  return data as PlayerAnswerRow;
+  if (updateErr) {
+    return { success: false, error: updateErr.message };
+  }
+
+  return { success: true };
 }
 
 /**
- * Get IDs of questions already answered in a session.
+ * Get IDs of all questions answered so far in a session.
  */
 export async function getAnsweredQuestionIds(sessionId: string): Promise<string[]> {
   const client = getSupabaseClient();
@@ -310,14 +403,52 @@ export async function getAnsweredQuestionIds(sessionId: string): Promise<string[
   return [...new Set((data as Array<{ question_id: string }>).map((r) => r.question_id))];
 }
 
+/**
+ * Fetch recent answers for a session (ordered by created_at DESC).
+ */
+export async function getRecentSessionAnswers(
+  sessionId: string,
+  limit = 5
+): Promise<PlayerAnswerRow[]> {
+  const client = getSupabaseClient();
+  if (!client) return [];
+
+  const { data, error } = await client
+    .from('player_answers')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error || !data) return [];
+  return data as PlayerAnswerRow[];
+}
+
+/**
+ * Fetch all answers for a session (used for recap calculation).
+ */
+export async function getAllSessionAnswers(sessionId: string): Promise<PlayerAnswerRow[]> {
+  const client = getSupabaseClient();
+  if (!client) return [];
+
+  const { data, error } = await client
+    .from('player_answers')
+    .select('*')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: true });
+
+  if (error || !data) return [];
+  return data as PlayerAnswerRow[];
+}
+
 // -----------------------------------------------------------------------------
 // Game Recaps
 // -----------------------------------------------------------------------------
 
 /**
- * Store a game recap for a session.
+ * Save or update game recap in `game_recaps` table.
  */
-export async function createRecap(recap: {
+export async function saveGameRecap(recap: {
   sessionId: string;
   hostInsight: string;
   familySynergyPercent: string;
@@ -330,14 +461,17 @@ export async function createRecap(recap: {
 
   const { data, error } = await client
     .from('game_recaps')
-    .upsert({
-      session_id: recap.sessionId,
-      host_insight: recap.hostInsight,
-      family_synergy_percent: recap.familySynergyPercent,
-      avg_speed_sec: recap.avgSpeedSec,
-      next_game_recommendation: recap.nextGameRecommendation,
-      standings: recap.standings || [],
-    }, { onConflict: 'session_id' })
+    .upsert(
+      {
+        session_id: recap.sessionId,
+        host_insight: recap.hostInsight,
+        family_synergy_percent: recap.familySynergyPercent,
+        avg_speed_sec: recap.avgSpeedSec,
+        next_game_recommendation: recap.nextGameRecommendation,
+        standings: recap.standings || [],
+      },
+      { onConflict: 'session_id' }
+    )
     .select()
     .single();
 
@@ -346,9 +480,9 @@ export async function createRecap(recap: {
 }
 
 /**
- * Fetch an existing recap for a session.
+ * Fetch recap for a session.
  */
-export async function fetchRecap(sessionId: string): Promise<GameRecapRow | null> {
+export async function fetchGameRecap(sessionId: string): Promise<GameRecapRow | null> {
   const client = getSupabaseClient();
   if (!client) return null;
 

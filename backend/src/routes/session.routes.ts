@@ -12,6 +12,9 @@ const router = Router();
 // POST /api/sessions — Create a new game session
 router.post('/sessions', sessionController.createSession);
 
+// GET /api/sessions/:id — Retrieve existing session details
+router.get('/sessions/:id', sessionController.getSession);
+
 // POST /api/sessions/:id/question — Fetch next question for session
 router.post('/sessions/:id/question', sessionController.getQuestion);
 
