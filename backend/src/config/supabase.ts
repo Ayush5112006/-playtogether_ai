@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const supabaseUrl = process.env.SUPABASE_URL;
-// In backend, prefer the secret/service role key for trusted server access, fallback to publishable/anon key
 const supabaseKey =
   process.env.SUPABASE_SECRET_KEY ||
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -20,9 +19,6 @@ export interface SupabaseHealthResult {
 
 let supabaseInstance: SupabaseClient | null = null;
 
-/**
- * Checks whether Supabase environment variables are provided with non-placeholder values.
- */
 export function isSupabaseConfigured(): boolean {
   if (!supabaseUrl || !supabaseKey) {
     return false;
@@ -35,11 +31,6 @@ export function isSupabaseConfigured(): boolean {
   return !isPlaceholderUrl && !isPlaceholderKey;
 }
 
-
-/**
- * Retrieves the singleton Supabase client instance.
- * Returns null if Supabase is not configured yet.
- */
 export function getSupabaseClient(): SupabaseClient | null {
   if (!isSupabaseConfigured()) {
     return null;
@@ -57,9 +48,6 @@ export function getSupabaseClient(): SupabaseClient | null {
   return supabaseInstance;
 }
 
-/**
- * Performs a lightweight check to verify Supabase connectivity without leaking sensitive credentials.
- */
 export async function checkSupabaseConnection(): Promise<SupabaseHealthResult> {
   if (!isSupabaseConfigured()) {
     return {
@@ -81,12 +69,9 @@ export async function checkSupabaseConnection(): Promise<SupabaseHealthResult> {
   }
 
   try {
-    // Perform a lightweight probe to verify authentication & network connectivity
-    // Testing connection against PostgREST endpoint
     const { error } = await client.from('_health_check').select('count', { count: 'exact', head: true });
 
     if (error) {
-      // If table doesn't exist (PGRST205, PGRST204, or 42P01), connection was authenticated and reached Supabase PostgREST!
       if (
         error.code === '42P01' ||
         error.code === 'PGRST204' ||
@@ -99,11 +84,10 @@ export async function checkSupabaseConnection(): Promise<SupabaseHealthResult> {
           configured: true,
           connected: true,
           status: 'connected',
-          message: 'Connected to Supabase successfully (database schema pending Phase 2 setup)',
+          message: 'Connected to Supabase successfully',
         };
       }
 
-      // Invalid API key or unauthorized
       if (error.code === 'PGRST301' || error.message?.toLowerCase().includes('jwt') || error.message?.toLowerCase().includes('apikey')) {
         return {
           configured: true,
@@ -147,5 +131,4 @@ export async function checkSupabaseConnection(): Promise<SupabaseHealthResult> {
   }
 }
 
-// Export singleton instance (or null if unconfigured)
-export const supabase = isSupabaseConfigured() ? getSupabaseClient() : null;
+export const supabase = getSupabaseClient();
