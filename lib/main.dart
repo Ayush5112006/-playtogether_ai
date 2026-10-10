@@ -134,20 +134,12 @@ class _MainTVViewportState extends State<MainTVViewport> {
       lastRemoteCommand = cmd;
 
       if (cmd == 'OK') {
-        if (currentScreenIndex == 0) {
-          currentScreenIndex = 1;
-        } else if (currentScreenIndex == 1) {
-          currentScreenIndex = 2; // Player Setup -> Game Select
-        } else if (currentScreenIndex == 2) {
-          currentScreenIndex = 3; // Game Select -> Synthesis
-        } else if (currentScreenIndex == 3) {
+        if (currentScreenIndex == 3) {
           gameplayQuestionIndex = 0;
           currentScreenIndex = 4;
         } else if (currentScreenIndex == 5) { // Adaptation -> Gameplay next q
           gameplayQuestionIndex = 1;
           currentScreenIndex = 4;
-        } else if (currentScreenIndex == 6) { // Winner -> Hub
-          currentScreenIndex = 0;
         }
       } else if (cmd == 'BACK') {
         if (currentScreenIndex > 0) {

@@ -31,7 +31,13 @@ class GameSelectScreen extends StatefulWidget {
 class _GameSelectScreenState extends State<GameSelectScreen> {
   int selectedCategoryIndex = 0;
   late String currentDifficulty;
-  int focusArea = 0; // 0: Categories rail, 1: Difficulty rail, 2: Start button
+  
+  // 4 Focus Areas for D-Pad Remote:
+  // 0: Header "START QUIZ [OK]" Button
+  // 1: Category Cards Rail (LEFT / RIGHT)
+  // 2: Difficulty Pills Rail (LEFT / RIGHT)
+  // 3: Bottom "START QUIZ [OK]" Launch Button
+  int focusArea = 1;
 
   final List<String> difficulties = ['EASY', 'MEDIUM', 'HARD', 'ADAPTIVE'];
 
@@ -51,27 +57,27 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
     if (widget.lastRemoteCommand != null && widget.lastRemoteCommand != oldWidget.lastRemoteCommand) {
       final rawCmd = widget.lastRemoteCommand!;
       final cmd = rawCmd.contains('-') ? rawCmd.split('-').first : rawCmd;
-      final catCount = widget.categories.isNotEmpty ? widget.categories.length : 4;
+      final catCount = widget.categories.isNotEmpty ? widget.categories.length.clamp(1, 4) : 4;
 
       if (cmd == 'LEFT') {
-        if (focusArea == 0) {
+        if (focusArea == 1) {
           setState(() {
             selectedCategoryIndex = (selectedCategoryIndex - 1 + catCount) % catCount;
           });
           _notifyCategoryChanged();
-        } else if (focusArea == 1) {
+        } else if (focusArea == 2) {
           final diffIdx = difficulties.indexOf(currentDifficulty);
           final newIdx = (diffIdx - 1 + difficulties.length) % difficulties.length;
           setState(() => currentDifficulty = difficulties[newIdx]);
           widget.onDifficultyChanged?.call(currentDifficulty);
         }
       } else if (cmd == 'RIGHT') {
-        if (focusArea == 0) {
+        if (focusArea == 1) {
           setState(() {
             selectedCategoryIndex = (selectedCategoryIndex + 1) % catCount;
           });
           _notifyCategoryChanged();
-        } else if (focusArea == 1) {
+        } else if (focusArea == 2) {
           final diffIdx = difficulties.indexOf(currentDifficulty);
           final newIdx = (diffIdx + 1) % difficulties.length;
           setState(() => currentDifficulty = difficulties[newIdx]);
@@ -79,16 +85,24 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
         }
       } else if (cmd == 'DOWN') {
         setState(() {
-          focusArea = (focusArea + 1).clamp(0, 2);
+          focusArea = (focusArea + 1) % 4; // Cycles 0 -> 1 -> 2 -> 3 -> 0
         });
       } else if (cmd == 'UP') {
         setState(() {
-          focusArea = (focusArea - 1).clamp(0, 2);
+          focusArea = (focusArea - 1 + 4) % 4; // Cycles backwards
         });
       } else if (cmd == 'OK') {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          widget.onCreateGame();
+          if (focusArea == 0 || focusArea == 3) {
+            widget.onCreateGame();
+          } else if (focusArea == 1) {
+            _notifyCategoryChanged();
+          } else if (focusArea == 2) {
+            final diffIdx = (difficulties.indexOf(currentDifficulty) + 1) % difficulties.length;
+            setState(() => currentDifficulty = difficulties[diffIdx]);
+            widget.onDifficultyChanged?.call(currentDifficulty);
+          }
         });
       }
     }
@@ -114,13 +128,16 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
             {'name': 'Surprise Buzzer Blitz', 'emoji': '⚡', 'questionCount': 3},
           ];
 
+    final isHeaderStartFocused = (focusArea == 0);
+    final isBottomStartFocused = (focusArea == 3);
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // 1. HEADER ROW (Focus Area 0: Header Start Button)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -168,16 +185,38 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
                     ),
                   ),
                   const SizedBox(width: 14),
-                  ElevatedButton.icon(
-                    onPressed: widget.onCreateGame,
-                    icon: const Icon(Icons.play_arrow, color: Colors.black, size: 22),
-                    label: Text('START QUIZ [OK]', style: AppStyles.labelLg(color: Colors.black)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.secondary,
-                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      elevation: 8,
-                      shadowColor: AppColors.secondary.withValues(alpha: 0.6),
+
+                  // Header Start Quiz Button (Focusable: Focus Area 0)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: isHeaderStartFocused
+                          ? [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.9), blurRadius: 28)]
+                          : [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.4), blurRadius: 10)],
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() => focusArea = 0);
+                        widget.onCreateGame();
+                      },
+                      icon: const Icon(Icons.play_arrow, color: Colors.black, size: 22),
+                      label: Text(
+                        isHeaderStartFocused ? 'START QUIZ [OK] ◄' : 'START QUIZ [OK]',
+                        style: AppStyles.labelLg(color: Colors.black),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isHeaderStartFocused ? Colors.white : AppColors.secondary,
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: BorderSide(
+                            color: isHeaderStartFocused ? AppColors.secondary : Colors.transparent,
+                            width: isHeaderStartFocused ? 3 : 0,
+                          ),
+                        ),
+                        elevation: isHeaderStartFocused ? 14 : 6,
+                      ),
                     ),
                   ),
                 ],
@@ -187,15 +226,15 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
 
           const SizedBox(height: 20),
 
-          // DYNAMIC CATEGORY CARDS RAIL
+          // 2. DYNAMIC CATEGORY CARDS RAIL (Focus Area 1)
           Row(
             children: catList.take(4).toList().asMap().entries.map((entry) {
               final idx = entry.key;
               final cat = entry.value;
               final name = cat['name'] as String? ?? 'General';
-              final emoji = cat['emoji'] as String? ?? '🧠';
-              final qCount = cat['questionCount'] as int? ?? 5;
-              final isFocused = focusArea == 0 && idx == selectedCategoryIndex;
+              final emoji = cat['emoji'] as String? ?? '🎯';
+              final qCount = cat['questionCount']?.toString() ?? '5';
+              final isFocused = (focusArea == 1 && selectedCategoryIndex == idx);
 
               return Expanded(
                 child: Padding(
@@ -204,7 +243,7 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
                     onTap: () {
                       setState(() {
                         selectedCategoryIndex = idx;
-                        focusArea = 0;
+                        focusArea = 1;
                       });
                       _notifyCategoryChanged();
                     },
@@ -216,12 +255,12 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
                           color: isFocused ? AppColors.secondary : Colors.white.withValues(alpha: 0.1),
-                          width: isFocused ? 3 : 1,
+                          width: isFocused ? 3.5 : 1,
                         ),
                         boxShadow: isFocused
                             ? [
                                 BoxShadow(
-                                  color: AppColors.secondary.withValues(alpha: 0.45),
+                                  color: AppColors.secondary.withValues(alpha: 0.55),
                                   blurRadius: 28,
                                 )
                               ]
@@ -239,11 +278,14 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: AppColors.secondary.withValues(alpha: 0.2),
+                                  color: isFocused ? AppColors.secondary : AppColors.secondary.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(color: AppColors.secondary.withValues(alpha: 0.4)),
                                 ),
-                                child: Text('$qCount Qs', style: AppStyles.labelMd(color: AppColors.secondary)),
+                                child: Text(
+                                  '$qCount Qs',
+                                  style: AppStyles.labelMd(color: isFocused ? Colors.black : AppColors.secondary),
+                                ),
                               ),
                             ],
                           ),
@@ -256,7 +298,10 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('10 Min', style: AppStyles.bodyMd()),
-                              Text(isFocused ? '[OK] Select' : 'Active', style: AppStyles.labelMd(color: isFocused ? AppColors.secondary : AppColors.outline)),
+                              Text(
+                                isFocused ? '[OK] SELECTED ◄' : 'Select',
+                                style: AppStyles.labelMd(color: isFocused ? AppColors.secondary : AppColors.outline),
+                              ),
                             ],
                           ),
                         ],
@@ -270,19 +315,26 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
 
           const SizedBox(height: 24),
 
-          // SETTINGS & AI INSIGHT RAIL
+          // 3. SETTINGS & AI INSIGHT RAIL (Focus Area 2: Difficulty Rail)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Left: Settings Selectors
+              // Left: Difficulty Selector
               Expanded(
                 flex: 8,
-                child: Container(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceLow.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+                    border: Border.all(
+                      color: (focusArea == 2) ? AppColors.secondary : AppColors.outlineVariant.withValues(alpha: 0.3),
+                      width: (focusArea == 2) ? 2.5 : 1,
+                    ),
+                    boxShadow: (focusArea == 2)
+                        ? [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.3), blurRadius: 20)]
+                        : [],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,7 +349,14 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
                               Text('GAME ENGINE PARAMETERS', style: AppStyles.labelMd(color: AppColors.secondary)),
                             ],
                           ),
-                          Text('D-Pad: ⬆ Up | Down ⬇ to switch row', style: TextStyle(fontSize: 11, color: AppColors.outlineVariant)),
+                          Text(
+                            (focusArea == 2) ? 'D-Pad: ◄ Left | Right ► to change • [OK] Select' : 'D-Pad: ⬆ Up | Down ⬇ to switch row',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: (focusArea == 2) ? FontWeight.bold : FontWeight.normal,
+                              color: (focusArea == 2) ? AppColors.secondary : AppColors.outlineVariant,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -307,26 +366,35 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
                         children: [
                           SizedBox(
                             width: 140,
-                            child: Text('Difficulty Level:', style: AppStyles.labelLg()),
+                            child: Text(
+                              'Difficulty Level:',
+                              style: AppStyles.labelLg(color: (focusArea == 2) ? Colors.white : AppColors.onSurfaceVariant),
+                            ),
                           ),
                           ...difficulties.map((d) {
                             final isSel = currentDifficulty == d;
-                            final isRowFocused = focusArea == 1 && isSel;
+                            final isChipFocused = (focusArea == 2 && isSel);
+
                             return Padding(
                               padding: const EdgeInsets.only(right: 12),
                               child: ChoiceChip(
-                                label: Text(d),
+                                label: Text(isChipFocused ? '$d [OK]' : d),
                                 selected: isSel,
                                 onSelected: (_) {
                                   setState(() {
                                     currentDifficulty = d;
-                                    focusArea = 1;
+                                    focusArea = 2;
                                   });
                                   widget.onDifficultyChanged?.call(d);
                                 },
-                                selectedColor: isRowFocused ? AppColors.secondary : AppColors.secondaryContainer,
-                                labelStyle: AppStyles.labelMd(color: isSel ? Colors.black : Colors.white),
-                                side: BorderSide(color: isRowFocused ? AppColors.secondary : AppColors.outlineVariant, width: isRowFocused ? 2 : 1),
+                                selectedColor: isChipFocused ? Colors.white : AppColors.secondaryContainer,
+                                labelStyle: AppStyles.labelMd(
+                                  color: isChipFocused ? Colors.black : (isSel ? Colors.white : AppColors.onSurfaceVariant),
+                                ),
+                                side: BorderSide(
+                                  color: isChipFocused ? AppColors.secondary : (isSel ? AppColors.secondary : AppColors.outlineVariant),
+                                  width: isChipFocused ? 3 : 1,
+                                ),
                               ),
                             );
                           }),
@@ -339,7 +407,7 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
 
               const SizedBox(width: 24),
 
-              // Right: Action Launcher CTA
+              // 4. RIGHT ACTION LAUNCHER (Focus Area 3: Bottom Start Button)
               Expanded(
                 flex: 4,
                 child: AnimatedContainer(
@@ -349,11 +417,11 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
                     color: AppColors.surfaceLowest,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: focusArea == 2 ? AppColors.secondary : AppColors.primary.withValues(alpha: 0.5),
-                      width: focusArea == 2 ? 3 : 1.5,
+                      color: isBottomStartFocused ? AppColors.secondary : AppColors.primary.withValues(alpha: 0.5),
+                      width: isBottomStartFocused ? 3.5 : 1.5,
                     ),
-                    boxShadow: focusArea == 2
-                        ? [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.6), blurRadius: 30)]
+                    boxShadow: isBottomStartFocused
+                        ? [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.8), blurRadius: 32)]
                         : [BoxShadow(color: AppColors.primary.withValues(alpha: 0.2), blurRadius: 20)],
                   ),
                   child: Column(
@@ -380,16 +448,29 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
-                          onPressed: widget.onCreateGame,
+                          onPressed: () {
+                            setState(() => focusArea = 3);
+                            widget.onCreateGame();
+                          },
                           style: ElevatedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 20),
-                            backgroundColor: focusArea == 2 ? AppColors.secondaryContainer : AppColors.primaryContainer,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            backgroundColor: isBottomStartFocused ? AppColors.secondaryContainer : AppColors.primaryContainer,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(
+                                color: isBottomStartFocused ? AppColors.secondary : Colors.transparent,
+                                width: isBottomStartFocused ? 3 : 0,
+                              ),
+                            ),
+                            elevation: isBottomStartFocused ? 14 : 6,
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Text('START QUIZ [OK]', style: AppStyles.headlineMd(color: Colors.white)),
+                              Text(
+                                isBottomStartFocused ? 'START QUIZ [OK] ◄' : 'START QUIZ [OK]',
+                                style: AppStyles.headlineMd(color: Colors.white),
+                              ),
                               const SizedBox(width: 10),
                               const Icon(Icons.play_arrow, color: Colors.white, size: 24),
                             ],

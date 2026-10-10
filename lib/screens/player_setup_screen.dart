@@ -23,8 +23,13 @@ class PlayerSetupScreen extends StatefulWidget {
 }
 
 class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
-  int focusedIndex = 0; // Focus on first player by default
-  bool isContinueFocused = false;
+  // 2D Spatial Focus Grid for D-Pad Remote:
+  // Row 0: Top Header Actions (0: Rename [MIC], 1: CONTINUE [OK])
+  // Row 1: Player Cards (0 .. players.length - 1)
+  // Row 2: "Edit Name" Button on each Card (0 .. players.length - 1)
+  // Row 3: Bottom Control Bar (0: + Add Player, 1: Shuffle Roles, 2: CONTINUE TO GAME SELECT [OK])
+  int focusRow = 1;
+  int focusCol = 0;
 
   @override
   void didUpdateWidget(PlayerSetupScreen oldWidget) {
@@ -32,34 +37,86 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
     if (widget.lastRemoteCommand != null && widget.lastRemoteCommand != oldWidget.lastRemoteCommand) {
       final rawCmd = widget.lastRemoteCommand!;
       final cmd = rawCmd.contains('-') ? rawCmd.split('-').first : rawCmd;
+      final playerCount = widget.players.isNotEmpty ? widget.players.length : 1;
 
       if (cmd == 'LEFT') {
         setState(() {
-          isContinueFocused = false;
-          focusedIndex = (focusedIndex - 1 + widget.players.length) % widget.players.length;
+          if (focusRow == 0) {
+            focusCol = (focusCol - 1).clamp(0, 1);
+          } else if (focusRow == 1 || focusRow == 2) {
+            focusCol = (focusCol - 1 + playerCount) % playerCount;
+            widget.onFocusPlayerChanged(focusCol);
+          } else if (focusRow == 3) {
+            focusCol = (focusCol - 1).clamp(0, 2);
+          }
         });
-        widget.onFocusPlayerChanged(focusedIndex);
       } else if (cmd == 'RIGHT') {
         setState(() {
-          isContinueFocused = false;
-          focusedIndex = (focusedIndex + 1) % widget.players.length;
-        });
-        widget.onFocusPlayerChanged(focusedIndex);
-      } else if (cmd == 'DOWN') {
-        setState(() {
-          isContinueFocused = true;
+          if (focusRow == 0) {
+            focusCol = (focusCol + 1).clamp(0, 1);
+          } else if (focusRow == 1 || focusRow == 2) {
+            focusCol = (focusCol + 1) % playerCount;
+            widget.onFocusPlayerChanged(focusCol);
+          } else if (focusRow == 3) {
+            focusCol = (focusCol + 1).clamp(0, 2);
+          }
         });
       } else if (cmd == 'UP') {
         setState(() {
-          isContinueFocused = false;
+          if (focusRow == 3) {
+            focusRow = 2;
+            focusCol = focusCol.clamp(0, playerCount - 1);
+          } else if (focusRow == 2) {
+            focusRow = 1;
+          } else if (focusRow == 1) {
+            focusRow = 0;
+            focusCol = focusCol >= (playerCount / 2) ? 1 : 0;
+          } else if (focusRow == 0) {
+            focusRow = 3;
+            focusCol = 2; // Wrap around to bottom continue
+          }
+        });
+      } else if (cmd == 'DOWN') {
+        setState(() {
+          if (focusRow == 0) {
+            focusRow = 1;
+            focusCol = (focusCol == 1) ? (playerCount - 1) : 0;
+          } else if (focusRow == 1) {
+            focusRow = 2;
+          } else if (focusRow == 2) {
+            focusRow = 3;
+            focusCol = (focusCol >= (playerCount / 2)) ? 2 : 0;
+          } else if (focusRow == 3) {
+            focusRow = 0;
+            focusCol = 1; // Wrap around to header continue
+          }
         });
       } else if (cmd == 'OK') {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          widget.onContinue();
+          if (focusRow == 0) {
+            if (focusCol == 0) {
+              _showEditNameDialog(focusCol.clamp(0, playerCount - 1));
+            } else {
+              widget.onContinue();
+            }
+          } else if (focusRow == 1) {
+            _showEditNameDialog(focusCol.clamp(0, playerCount - 1));
+          } else if (focusRow == 2) {
+            _showEditNameDialog(focusCol.clamp(0, playerCount - 1));
+          } else if (focusRow == 3) {
+            if (focusCol == 0) {
+              _addGuestPlayer();
+            } else if (focusCol == 1) {
+              _randomizeTeams();
+            } else {
+              widget.onContinue();
+            }
+          }
         });
       } else if (cmd == 'MIC') {
-        _showEditNameDialog(focusedIndex);
+        final activePlayer = (focusRow == 1 || focusRow == 2) ? focusCol : 0;
+        _showEditNameDialog(activePlayer.clamp(0, playerCount - 1));
       }
     }
   }
@@ -151,7 +208,8 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
           roleTag: 'Challenger',
         ),
       );
-      focusedIndex = widget.players.length - 1;
+      focusRow = 1;
+      focusCol = widget.players.length - 1;
     });
   }
 
@@ -167,12 +225,15 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isRenameFocused = focusRow == 0 && focusCol == 0;
+    final isHeaderContinueFocused = focusRow == 0 && focusCol == 1;
+
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
       child: Column(
         children: [
-          // Header Row
+          // 1. TOP HEADER ROW (With Focusable Action Buttons)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -188,43 +249,85 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Select any player card or press [OK] to proceed to game select',
+                    'Use remote D-Pad [Arrows] to navigate any button • Press [OK] to activate',
                     style: AppStyles.bodyXl(),
                   ),
                 ],
               ),
               Row(
                 children: [
+                  // Header Button 0: Rename [MIC]
                   InkWell(
-                    onTap: () => _showEditNameDialog(focusedIndex),
+                    onTap: () {
+                      setState(() {
+                        focusRow = 0;
+                        focusCol = 0;
+                      });
+                      _showEditNameDialog(focusCol.clamp(0, widget.players.length - 1));
+                    },
                     borderRadius: BorderRadius.circular(12),
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceHigh.withValues(alpha: 0.6),
+                        color: isRenameFocused ? AppColors.surfaceHigh : AppColors.surfaceHigh.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+                        border: Border.all(
+                          color: isRenameFocused ? AppColors.secondary : AppColors.outlineVariant.withValues(alpha: 0.3),
+                          width: isRenameFocused ? 3 : 1,
+                        ),
+                        boxShadow: isRenameFocused
+                            ? [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.7), blurRadius: 20)]
+                            : [],
                       ),
                       child: Row(
                         children: [
                           const Icon(Icons.mic, color: AppColors.secondary, size: 18),
                           const SizedBox(width: 6),
-                          Text('Rename [MIC]', style: AppStyles.labelMd()),
+                          Text(
+                            isRenameFocused ? 'Rename [MIC / OK] ◄' : 'Rename [MIC]',
+                            style: AppStyles.labelMd(color: isRenameFocused ? AppColors.secondary : AppColors.onSurface),
+                          ),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(width: 14),
-                  ElevatedButton.icon(
-                    onPressed: widget.onContinue,
-                    icon: const Icon(Icons.arrow_forward, color: Colors.black, size: 20),
-                    label: Text('CONTINUE [OK]', style: AppStyles.labelLg(color: Colors.black)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.secondary,
-                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                      elevation: 8,
-                      shadowColor: AppColors.secondary.withValues(alpha: 0.6),
+
+                  // Header Button 1: CONTINUE [OK]
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: isHeaderContinueFocused
+                          ? [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.8), blurRadius: 28)]
+                          : [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.3), blurRadius: 10)],
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          focusRow = 0;
+                          focusCol = 1;
+                        });
+                        widget.onContinue();
+                      },
+                      icon: const Icon(Icons.arrow_forward, color: Colors.black, size: 20),
+                      label: Text(
+                        isHeaderContinueFocused ? 'CONTINUE [OK] ◄' : 'CONTINUE [OK]',
+                        style: AppStyles.labelLg(color: Colors.black),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isHeaderContinueFocused ? Colors.white : AppColors.secondary,
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: BorderSide(
+                            color: isHeaderContinueFocused ? AppColors.secondary : Colors.transparent,
+                            width: isHeaderContinueFocused ? 3 : 0,
+                          ),
+                        ),
+                        elevation: isHeaderContinueFocused ? 14 : 6,
+                      ),
                     ),
                   ),
                 ],
@@ -234,41 +337,45 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
 
           const SizedBox(height: 20),
 
-          // DYNAMIC PLAYER CARDS ROW
+          // 2. DYNAMIC PLAYER CARDS ROW (Rows 1 & 2 Focusable)
           Row(
             children: widget.players.asMap().entries.map((entry) {
               final idx = entry.key;
               final player = entry.value;
-              final isFocused = idx == focusedIndex && !isContinueFocused;
+              final isCardFocused = (focusRow == 1 && focusCol == idx);
+              final isEditBtnFocused = (focusRow == 2 && focusCol == idx);
+
               return Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: GestureDetector(
                     onTap: () {
                       setState(() {
-                        focusedIndex = idx;
-                        isContinueFocused = false;
+                        focusRow = 1;
+                        focusCol = idx;
                       });
                       widget.onFocusPlayerChanged(idx);
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 250),
-                      height: isFocused ? 330 : 300,
+                      height: (isCardFocused || isEditBtnFocused) ? 335 : 300,
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: isFocused
+                        color: isCardFocused
                             ? AppColors.surfaceHigh.withValues(alpha: 0.95)
-                            : AppColors.surfaceLow.withValues(alpha: 0.85),
+                            : (isEditBtnFocused ? AppColors.surfaceHigh.withValues(alpha: 0.90) : AppColors.surfaceLow.withValues(alpha: 0.85)),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isFocused ? AppColors.secondary : Colors.white.withValues(alpha: 0.1),
-                          width: isFocused ? 3 : 1,
+                          color: isCardFocused
+                              ? AppColors.secondary
+                              : (isEditBtnFocused ? AppColors.secondary.withValues(alpha: 0.7) : Colors.white.withValues(alpha: 0.1)),
+                          width: isCardFocused ? 3.5 : (isEditBtnFocused ? 2 : 1),
                         ),
-                        boxShadow: isFocused
+                        boxShadow: isCardFocused
                             ? [
                                 BoxShadow(
-                                  color: AppColors.secondary.withValues(alpha: 0.45),
-                                  blurRadius: 24,
+                                  color: AppColors.secondary.withValues(alpha: 0.55),
+                                  blurRadius: 28,
                                 ),
                               ]
                             : [
@@ -278,7 +385,7 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          if (isFocused)
+                          if (isCardFocused)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                               decoration: BoxDecoration(
@@ -292,7 +399,7 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
                                 children: [
                                   const Icon(Icons.settings_remote, size: 13, color: Colors.white),
                                   const SizedBox(width: 4),
-                                  Text('FOCUSED', style: AppStyles.labelMd(color: Colors.white)),
+                                  Text('FOCUSED [OK]', style: AppStyles.labelMd(color: Colors.white)),
                                 ],
                               ),
                             )
@@ -324,8 +431,8 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
 
                           // Avatar Circle
                           Container(
-                            width: isFocused ? 84 : 72,
-                            height: isFocused ? 84 : 72,
+                            width: (isCardFocused || isEditBtnFocused) ? 84 : 72,
+                            height: (isCardFocused || isEditBtnFocused) ? 84 : 72,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: LinearGradient(
@@ -340,7 +447,7 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
                             ),
                             child: CircleAvatar(
                               backgroundColor: AppColors.surfaceLowest,
-                              child: Icon(player.icon, size: isFocused ? 42 : 36, color: player.accentColor),
+                              child: Icon(player.icon, size: (isCardFocused || isEditBtnFocused) ? 42 : 36, color: player.accentColor),
                             ),
                           ),
 
@@ -361,24 +468,47 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
                             ],
                           ),
 
-                          // Action tool bar
+                          // Focusable Row 2: "Edit Name" Button
                           InkWell(
-                            onTap: () => _showEditNameDialog(idx),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            onTap: () {
+                              setState(() {
+                                focusRow = 2;
+                                focusCol = idx;
+                              });
+                              _showEditNameDialog(idx);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: isFocused ? AppColors.secondary.withValues(alpha: 0.2) : AppColors.surfaceLowest,
+                                color: isEditBtnFocused
+                                    ? AppColors.secondary
+                                    : (isCardFocused ? AppColors.secondary.withValues(alpha: 0.25) : AppColors.surfaceLowest),
                                 borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: isFocused ? AppColors.secondary : AppColors.outlineVariant),
+                                border: Border.all(
+                                  color: isEditBtnFocused
+                                      ? Colors.white
+                                      : (isCardFocused ? AppColors.secondary : AppColors.outlineVariant),
+                                  width: isEditBtnFocused ? 2.5 : 1,
+                                ),
+                                boxShadow: isEditBtnFocused
+                                    ? [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.8), blurRadius: 18)]
+                                    : [],
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.edit, size: 12, color: isFocused ? AppColors.secondary : AppColors.outline),
+                                  Icon(
+                                    Icons.edit,
+                                    size: 13,
+                                    color: isEditBtnFocused ? Colors.black : (isCardFocused ? AppColors.secondary : AppColors.outline),
+                                  ),
                                   const SizedBox(width: 4),
                                   Text(
-                                    'Edit Name',
-                                    style: AppStyles.labelMd(color: isFocused ? AppColors.secondary : AppColors.outline),
+                                    isEditBtnFocused ? 'Edit Name [OK] ◄' : 'Edit Name',
+                                    style: AppStyles.labelMd(
+                                      color: isEditBtnFocused ? Colors.black : (isCardFocused ? AppColors.secondary : AppColors.outline),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -393,67 +523,139 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
             }).toList(),
           ),
 
-          const SizedBox(height: 28),
+          const SizedBox(height: 24),
 
-          // BOTTOM CONTROL BAR & CTA
+          // 3. BOTTOM CONTROL BAR (Row 3 Focusable)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Row(
                 children: [
-                  OutlinedButton.icon(
-                    onPressed: _addGuestPlayer,
-                    icon: const Icon(Icons.person_add, color: AppColors.secondary),
-                    label: Text('+ Add Player (${widget.players.length}/6)', style: AppStyles.labelLg()),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      side: const BorderSide(color: AppColors.outlineVariant),
+                  // Bottom Button 0: + Add Player
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: (focusRow == 3 && focusCol == 0)
+                          ? [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.7), blurRadius: 25)]
+                          : [],
+                    ),
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          focusRow = 3;
+                          focusCol = 0;
+                        });
+                        _addGuestPlayer();
+                      },
+                      icon: Icon(
+                        Icons.person_add,
+                        color: (focusRow == 3 && focusCol == 0) ? Colors.white : AppColors.secondary,
+                      ),
+                      label: Text(
+                        (focusRow == 3 && focusCol == 0)
+                            ? '+ Add Player (${widget.players.length}/6) [OK] ◄'
+                            : '+ Add Player (${widget.players.length}/6)',
+                        style: AppStyles.labelLg(
+                          color: (focusRow == 3 && focusCol == 0) ? Colors.white : AppColors.onSurface,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        backgroundColor: (focusRow == 3 && focusCol == 0) ? AppColors.surfaceHigh : Colors.transparent,
+                        side: BorderSide(
+                          color: (focusRow == 3 && focusCol == 0) ? AppColors.secondary : AppColors.outlineVariant,
+                          width: (focusRow == 3 && focusCol == 0) ? 3 : 1,
+                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 16),
-                  OutlinedButton.icon(
-                    onPressed: _randomizeTeams,
-                    icon: const Icon(Icons.shuffle, color: AppColors.primary),
-                    label: Text('Shuffle Roles', style: AppStyles.labelLg()),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      side: const BorderSide(color: AppColors.outlineVariant),
+
+                  // Bottom Button 1: Shuffle Roles
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: (focusRow == 3 && focusCol == 1)
+                          ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.7), blurRadius: 25)]
+                          : [],
+                    ),
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          focusRow = 3;
+                          focusCol = 1;
+                        });
+                        _randomizeTeams();
+                      },
+                      icon: Icon(
+                        Icons.shuffle,
+                        color: (focusRow == 3 && focusCol == 1) ? Colors.white : AppColors.primary,
+                      ),
+                      label: Text(
+                        (focusRow == 3 && focusCol == 1) ? 'Shuffle Roles [OK] ◄' : 'Shuffle Roles',
+                        style: AppStyles.labelLg(
+                          color: (focusRow == 3 && focusCol == 1) ? Colors.white : AppColors.onSurface,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        backgroundColor: (focusRow == 3 && focusCol == 1) ? AppColors.surfaceHigh : Colors.transparent,
+                        side: BorderSide(
+                          color: (focusRow == 3 && focusCol == 1) ? AppColors.primary : AppColors.outlineVariant,
+                          width: (focusRow == 3 && focusCol == 1) ? 3 : 1,
+                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      ),
                     ),
                   ),
                 ],
               ),
 
+              // Bottom Button 2: CONTINUE TO GAME SELECT [OK]
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: isContinueFocused
+                  boxShadow: (focusRow == 3 && focusCol == 2)
                       ? [
                           BoxShadow(
-                            color: AppColors.secondary.withValues(alpha: 0.8),
-                            blurRadius: 30,
+                            color: AppColors.secondary.withValues(alpha: 0.9),
+                            blurRadius: 35,
                           ),
                         ]
                       : [],
                 ),
                 child: ElevatedButton(
-                  onPressed: widget.onContinue,
+                  onPressed: () {
+                    setState(() {
+                      focusRow = 3;
+                      focusCol = 2;
+                    });
+                    widget.onContinue();
+                  },
                   style: ElevatedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(horizontal: 36, vertical: 20),
-                    backgroundColor: isContinueFocused ? AppColors.secondaryContainer : AppColors.primaryContainer,
+                    backgroundColor: (focusRow == 3 && focusCol == 2)
+                        ? AppColors.secondaryContainer
+                        : AppColors.primaryContainer,
                     elevation: 10,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                       side: BorderSide(
-                        color: isContinueFocused ? AppColors.secondary : Colors.transparent,
-                        width: isContinueFocused ? 3 : 0,
+                        color: (focusRow == 3 && focusCol == 2) ? AppColors.secondary : Colors.transparent,
+                        width: (focusRow == 3 && focusCol == 2) ? 3.5 : 0,
                       ),
                     ),
                   ),
                   child: Row(
                     children: [
                       Text(
-                        'CONTINUE TO GAME SELECT [OK]',
+                        (focusRow == 3 && focusCol == 2)
+                            ? 'CONTINUE TO GAME SELECT [OK] ◄'
+                            : 'CONTINUE TO GAME SELECT [OK]',
                         style: AppStyles.headlineMd(color: Colors.white),
                       ),
                       const SizedBox(width: 12),
