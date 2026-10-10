@@ -136,6 +136,10 @@ class _MainTVViewportState extends State<MainTVViewport> {
       if (cmd == 'OK') {
         if (currentScreenIndex == 0) {
           currentScreenIndex = 1;
+        } else if (currentScreenIndex == 1) {
+          currentScreenIndex = 2; // Player Setup -> Game Select
+        } else if (currentScreenIndex == 2) {
+          currentScreenIndex = 3; // Game Select -> Synthesis
         } else if (currentScreenIndex == 3) {
           gameplayQuestionIndex = 0;
           currentScreenIndex = 4;

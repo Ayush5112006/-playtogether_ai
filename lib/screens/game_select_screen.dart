@@ -88,9 +88,7 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
       } else if (cmd == 'OK') {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          if (focusArea == 2 || focusArea == 0) {
-            widget.onCreateGame();
-          }
+          widget.onCreateGame();
         });
       }
     }
@@ -142,30 +140,47 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
                   ),
                 ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceLow,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  children: [
-                    ...widget.players.map((p) => Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: CircleAvatar(
-                            radius: 12,
-                            backgroundColor: p.accentColor,
-                            child: Text(
-                              p.name.isNotEmpty ? p.name[0] : 'P',
-                              style: AppStyles.labelMd(color: Colors.black),
-                            ),
-                          ),
-                        )),
-                    const SizedBox(width: 6),
-                    Text('${widget.players.length} Players Synced', style: AppStyles.labelMd()),
-                  ],
-                ),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceLow,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        ...widget.players.map((p) => Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: CircleAvatar(
+                                radius: 12,
+                                backgroundColor: p.accentColor,
+                                child: Text(
+                                  p.name.isNotEmpty ? p.name[0] : 'P',
+                                  style: AppStyles.labelMd(color: Colors.black),
+                                ),
+                              ),
+                            )),
+                        const SizedBox(width: 6),
+                        Text('${widget.players.length} Players Synced', style: AppStyles.labelMd()),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  ElevatedButton.icon(
+                    onPressed: widget.onCreateGame,
+                    icon: const Icon(Icons.play_arrow, color: Colors.black, size: 22),
+                    label: Text('START QUIZ [OK]', style: AppStyles.labelLg(color: Colors.black)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.secondary,
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 8,
+                      shadowColor: AppColors.secondary.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

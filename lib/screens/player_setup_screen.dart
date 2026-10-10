@@ -56,11 +56,7 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
       } else if (cmd == 'OK') {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          if (isContinueFocused) {
-            widget.onContinue();
-          } else {
-            _showEditNameDialog(focusedIndex);
-          }
+          widget.onContinue();
         });
       } else if (cmd == 'MIC') {
         _showEditNameDialog(focusedIndex);
@@ -192,34 +188,51 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Select any player card to rename or adjust team profiles [OK / MIC]',
+                    'Select any player card or press [OK] to proceed to game select',
                     style: AppStyles.bodyXl(),
                   ),
                 ],
               ),
-              InkWell(
-                onTap: () => _showEditNameDialog(focusedIndex),
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceHigh.withValues(alpha: 0.6),
+              Row(
+                children: [
+                  InkWell(
+                    onTap: () => _showEditNameDialog(focusedIndex),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceHigh.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.mic, color: AppColors.secondary, size: 18),
+                          const SizedBox(width: 6),
+                          Text('Rename [MIC]', style: AppStyles.labelMd()),
+                        ],
+                      ),
+                    ),
                   ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.mic, color: AppColors.secondary, size: 20),
-                      const SizedBox(width: 8),
-                      Text('Voice Input: Tap or press [MIC] to rename', style: AppStyles.labelMd()),
-                    ],
+                  const SizedBox(width: 14),
+                  ElevatedButton.icon(
+                    onPressed: widget.onContinue,
+                    icon: const Icon(Icons.arrow_forward, color: Colors.black, size: 20),
+                    label: Text('CONTINUE [OK]', style: AppStyles.labelLg(color: Colors.black)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.secondary,
+                      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                      elevation: 8,
+                      shadowColor: AppColors.secondary.withValues(alpha: 0.6),
+                    ),
                   ),
-                ),
+                ],
               ),
             ],
           ),
 
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           // DYNAMIC PLAYER CARDS ROW
           Row(
@@ -237,12 +250,11 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
                         isContinueFocused = false;
                       });
                       widget.onFocusPlayerChanged(idx);
-                      _showEditNameDialog(idx);
                     },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 250),
-                      height: isFocused ? 420 : 390,
-                      padding: const EdgeInsets.all(16),
+                      height: isFocused ? 330 : 300,
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         color: isFocused
                             ? AppColors.surfaceHigh.withValues(alpha: 0.95)
@@ -256,11 +268,11 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
                             ? [
                                 BoxShadow(
                                   color: AppColors.secondary.withValues(alpha: 0.45),
-                                  blurRadius: 30,
+                                  blurRadius: 24,
                                 ),
                               ]
                             : [
-                                const BoxShadow(color: Colors.black26, blurRadius: 15),
+                                const BoxShadow(color: Colors.black26, blurRadius: 12),
                               ],
                       ),
                       child: Column(
@@ -268,7 +280,7 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
                         children: [
                           if (isFocused)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                               decoration: BoxDecoration(
                                 gradient: const LinearGradient(
                                   colors: [AppColors.secondaryContainer, AppColors.primaryContainer],
@@ -278,14 +290,14 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.settings_remote, size: 14, color: Colors.white),
+                                  const Icon(Icons.settings_remote, size: 13, color: Colors.white),
                                   const SizedBox(width: 4),
                                   Text('FOCUSED', style: AppStyles.labelMd(color: Colors.white)),
                                 ],
                               ),
                             )
                           else
-                            const SizedBox(height: 20),
+                            const SizedBox(height: 16),
 
                           // Status Header
                           Row(
@@ -312,8 +324,8 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
 
                           // Avatar Circle
                           Container(
-                            width: isFocused ? 105 : 90,
-                            height: isFocused ? 105 : 90,
+                            width: isFocused ? 84 : 72,
+                            height: isFocused ? 84 : 72,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               gradient: LinearGradient(
@@ -322,13 +334,13 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
                               boxShadow: [
                                 BoxShadow(
                                   color: player.accentColor.withValues(alpha: 0.5),
-                                  blurRadius: 20,
+                                  blurRadius: 16,
                                 )
                               ],
                             ),
                             child: CircleAvatar(
                               backgroundColor: AppColors.surfaceLowest,
-                              child: Icon(player.icon, size: isFocused ? 56 : 46, color: player.accentColor),
+                              child: Icon(player.icon, size: isFocused ? 42 : 36, color: player.accentColor),
                             ),
                           ),
 
@@ -353,7 +365,7 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
                           InkWell(
                             onTap: () => _showEditNameDialog(idx),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                               decoration: BoxDecoration(
                                 color: isFocused ? AppColors.secondary.withValues(alpha: 0.2) : AppColors.surfaceLowest,
                                 borderRadius: BorderRadius.circular(10),
@@ -365,7 +377,7 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
                                   Icon(Icons.edit, size: 12, color: isFocused ? AppColors.secondary : AppColors.outline),
                                   const SizedBox(width: 4),
                                   Text(
-                                    isFocused ? '[OK] Rename' : 'Edit Name',
+                                    'Edit Name',
                                     style: AppStyles.labelMd(color: isFocused ? AppColors.secondary : AppColors.outline),
                                   ),
                                 ],
