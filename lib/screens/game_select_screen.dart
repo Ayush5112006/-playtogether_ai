@@ -140,24 +140,34 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
           // 1. HEADER ROW (Focus Area 0: Header Start Button)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('What should we play?', style: AppStyles.headlineXl()),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text('Pick a category loaded directly from the database or let AI adapt to ', style: AppStyles.bodyXl()),
-                      Text(
-                        widget.players.map((p) => p.name).join(', '),
-                        style: AppStyles.labelLg(color: AppColors.secondary),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('What should we play?', style: AppStyles.headlineXl()),
+                    const SizedBox(height: 4),
+                    Text.rich(
+                      TextSpan(
+                        text: 'Pick a category or let AI adapt to ',
+                        style: AppStyles.bodyXl(),
+                        children: [
+                          TextSpan(
+                            text: widget.players.map((p) => p.name).join(', '),
+                            style: AppStyles.labelLg(color: AppColors.secondary),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ],
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 16),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),

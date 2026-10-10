@@ -149,8 +149,9 @@ class SharedTopBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(Icons.schedule, color: AppColors.onSurfaceVariant, size: 20),
-                  onPressed: () {},
+                  icon: const Icon(Icons.settings, color: AppColors.secondary, size: 20),
+                  tooltip: 'Game Settings & Parameters',
+                  onPressed: onSettingsTap,
                 ),
                 IconButton(
                   icon: const Icon(Icons.account_circle, color: AppColors.onSurfaceVariant, size: 20),

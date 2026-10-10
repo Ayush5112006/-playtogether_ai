@@ -101,15 +101,22 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 12,
+                          runSpacing: 6,
                           children: [
-                            const Icon(Icons.bolt, color: AppColors.secondary, size: 20),
-                            const SizedBox(width: 8),
-                            Text(
-                              'DATABASE SESSION #$cleanSessionTag ACTIVE',
-                              style: AppStyles.labelMd(color: AppColors.secondary),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.bolt, color: AppColors.secondary, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'DATABASE SESSION #$cleanSessionTag ACTIVE',
+                                  style: AppStyles.labelMd(color: AppColors.secondary),
+                                ),
+                              ],
                             ),
-                            const SizedBox(width: 12),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                               decoration: BoxDecoration(

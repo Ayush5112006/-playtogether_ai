@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'theme/app_theme.dart';
 import 'models/player.dart';
 import 'models/question.dart';
+import 'models/game_settings.dart';
 import 'services/api_service.dart';
 import 'widgets/top_bar.dart';
 import 'widgets/bottom_hud.dart';
@@ -55,6 +56,7 @@ class _MainTVViewportState extends State<MainTVViewport> {
   String activeSessionId = 'session_live_4892';
   String selectedCategory = 'Cinema Clues';
   String selectedDifficulty = 'ADAPTIVE';
+  GameSettings gameSettings = GameSettings();
 
   bool isRemoteOverlayVisible = true;
   final FocusNode _focusNode = FocusNode();
@@ -134,10 +136,7 @@ class _MainTVViewportState extends State<MainTVViewport> {
       lastRemoteCommand = cmd;
 
       if (cmd == 'OK') {
-        if (currentScreenIndex == 3) {
-          gameplayQuestionIndex = 0;
-          currentScreenIndex = 4;
-        } else if (currentScreenIndex == 5) { // Adaptation -> Gameplay next q
+        if (currentScreenIndex == 5) { // Adaptation -> Gameplay next q
           gameplayQuestionIndex = 1;
           currentScreenIndex = 4;
         }
@@ -245,6 +244,7 @@ class _MainTVViewportState extends State<MainTVViewport> {
                 SharedTopBar(
                   currentStep: currentScreenIndex == 0 ? 0 : (currentScreenIndex > 4 ? 4 : currentScreenIndex),
                   onMicTap: () => _handleRemoteCommand('MIC'),
+                  onSettingsTap: () => setState(() => currentScreenIndex = 3),
                   onStepTap: (step) {
                     setState(() {
                       if (step == 1) currentScreenIndex = 1;
@@ -265,6 +265,8 @@ class _MainTVViewportState extends State<MainTVViewport> {
                   onOkPress: () => _handleRemoteCommand('OK'),
                   onBackPress: () => _handleRemoteCommand('BACK'),
                   onMicPress: () => _handleRemoteCommand('MIC'),
+                  onLeaveRoom: () => setState(() => currentScreenIndex = 0),
+                  onSettingsTap: () => setState(() => currentScreenIndex = 3),
                 ),
               ],
             ),
@@ -320,8 +322,16 @@ class _MainTVViewportState extends State<MainTVViewport> {
         );
       case 3:
         return AiSynthesisScreen(
-          onStartGame: () => setState(() => currentScreenIndex = 4),
+          onStartGame: () => setState(() {
+            gameplayQuestionIndex = 0;
+            currentScreenIndex = 4;
+          }),
           lastRemoteCommand: remoteTag,
+          gameSettings: gameSettings,
+          onSettingsChanged: (updated) => setState(() => gameSettings = updated),
+          players: players,
+          selectedCategory: selectedCategory,
+          selectedDifficulty: selectedDifficulty,
         );
       case 4:
         return GameplayScreen(
@@ -332,6 +342,8 @@ class _MainTVViewportState extends State<MainTVViewport> {
           onTriggerAdaptation: () => setState(() => currentScreenIndex = 5),
           onGameFinished: () => setState(() => currentScreenIndex = 6),
           lastRemoteCommand: remoteTag,
+          questionTimerSeconds: gameSettings.timerSeconds,
+          questionCountLimit: gameSettings.questionCount,
           onScoreUpdate: (pts) {
             setState(() {
               if (players.isNotEmpty) {

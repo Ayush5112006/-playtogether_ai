@@ -6,6 +6,8 @@ class SharedBottomHud extends StatelessWidget {
   final VoidCallback? onOkPress;
   final VoidCallback? onMicPress;
   final VoidCallback? onBackPress;
+  final VoidCallback? onLeaveRoom;
+  final VoidCallback? onSettingsTap;
 
   const SharedBottomHud({
     super.key,
@@ -13,6 +15,8 @@ class SharedBottomHud extends StatelessWidget {
     this.onOkPress,
     this.onMicPress,
     this.onBackPress,
+    this.onLeaveRoom,
+    this.onSettingsTap,
   });
 
   @override
@@ -56,16 +60,37 @@ class SharedBottomHud extends StatelessWidget {
             // Secondary Quick Links
             Row(
               children: [
-                Text(
-                  'Leave Room',
-                  style: AppStyles.bodyMd(color: AppColors.onSurfaceVariant),
+                InkWell(
+                  onTap: onLeaveRoom,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    child: Text(
+                      'Leave Room',
+                      style: AppStyles.bodyMd(color: AppColors.onSurfaceVariant),
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Text('•', style: TextStyle(color: AppColors.outlineVariant)),
-                const SizedBox(width: 10),
-                Text(
-                  'Audio Settings',
-                  style: AppStyles.bodyMd(color: AppColors.onSurfaceVariant),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: onSettingsTap,
+                  borderRadius: BorderRadius.circular(6),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.tune, color: AppColors.secondary, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Audio & Game Settings',
+                          style: AppStyles.bodyMd(color: AppColors.secondary),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 10),
                 Text('•', style: TextStyle(color: AppColors.outlineVariant)),

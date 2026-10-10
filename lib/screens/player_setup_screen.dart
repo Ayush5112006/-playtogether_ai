@@ -237,24 +237,30 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text('Who\'s playing?', style: AppStyles.headlineXl()),
-                      const SizedBox(width: 12),
-                      Text('(${widget.players.length} players synced with DB)', style: AppStyles.headlineMd(color: AppColors.primary)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Use remote D-Pad [Arrows] to navigate any button • Press [OK] to activate',
-                    style: AppStyles.bodyXl(),
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text('Who\'s playing?', style: AppStyles.headlineXl()),
+                        const SizedBox(width: 12),
+                        Text('(${widget.players.length} players synced with DB)', style: AppStyles.headlineMd(color: AppColors.primary)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Use remote D-Pad [Arrows] to navigate any button • Press [OK] to activate',
+                      style: AppStyles.bodyXl(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 16),
               Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Header Button 0: Rename [MIC]
                   InkWell(

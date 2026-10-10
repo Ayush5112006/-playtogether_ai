@@ -14,6 +14,8 @@ class GameplayScreen extends StatefulWidget {
   final String? lastRemoteCommand;
   final int initialQuestionIndex;
   final String sessionId;
+  final int questionTimerSeconds;
+  final int questionCountLimit;
 
   const GameplayScreen({
     super.key,
@@ -25,6 +27,8 @@ class GameplayScreen extends StatefulWidget {
     this.initialQuestionIndex = 0,
     this.lastRemoteCommand,
     this.sessionId = 'session_live_4892',
+    this.questionTimerSeconds = 15,
+    this.questionCountLimit = 10,
   });
 
   @override
@@ -34,7 +38,7 @@ class GameplayScreen extends StatefulWidget {
 class _GameplayScreenState extends State<GameplayScreen> {
   late int currentQuestionIndex;
   int selectedOptionIndex = 0;
-  int secondsRemaining = 15;
+  late int secondsRemaining;
   Timer? _timer;
   bool isAnswerSubmitted = false;
   bool? lastAnswerCorrect;
@@ -80,7 +84,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
 
   void _startTimer() {
     _timer?.cancel();
-    secondsRemaining = 15;
+    secondsRemaining = widget.questionTimerSeconds;
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (secondsRemaining > 0) {
         setState(() => secondsRemaining--);
@@ -107,7 +111,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
     final points = currentQ.points;
 
     // Send real answer submission to Supabase backend
-    final responseTime = (15 - secondsRemaining).clamp(1, 15).toDouble();
+    final responseTime = (widget.questionTimerSeconds - secondsRemaining).clamp(1, widget.questionTimerSeconds).toDouble();
     if (activePlayer != null) {
       _apiService.submitAnswer(
         sessionId: widget.sessionId,
@@ -138,14 +142,16 @@ class _GameplayScreenState extends State<GameplayScreen> {
       widget.onScoreUpdate(points);
     }
 
+    final totalTargetQuestions = widget.questions.length.clamp(1, widget.questionCountLimit);
+
     // Move to next question or adaptation after brief explanation display
     Future.delayed(const Duration(milliseconds: 2200), () {
       if (!mounted) return;
 
-      if (currentQuestionIndex == 1) {
+      if (currentQuestionIndex == 1 && totalTargetQuestions > 2) {
         // Trigger AI Intervention on question 2 completion!
         widget.onTriggerAdaptation();
-      } else if (currentQuestionIndex < widget.questions.length - 1) {
+      } else if (currentQuestionIndex < totalTargetQuestions - 1) {
         setState(() {
           currentQuestionIndex++;
           selectedOptionIndex = 0;
@@ -198,7 +204,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
                     Container(width: 8, height: 8, decoration: const BoxDecoration(color: AppColors.secondary, shape: BoxShape.circle)),
                     const SizedBox(width: 8),
                     Text(
-                      'ROUND 1 • QUESTION 0${currentQuestionIndex + 1} OF ${widget.questions.length.clamp(1, 10)}',
+                      'ROUND 1 • QUESTION ${(currentQuestionIndex + 1).toString().padLeft(2, '0')} OF ${(widget.questions.length.clamp(1, widget.questionCountLimit)).toString().padLeft(2, '0')}',
                       style: AppStyles.labelMd(color: AppColors.secondary),
                     ),
                   ],
