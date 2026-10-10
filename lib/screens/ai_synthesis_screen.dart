@@ -5,20 +5,18 @@ import '../models/game_settings.dart';
 import '../models/player.dart';
 
 class AiSynthesisScreen extends StatefulWidget {
-  final VoidCallback onStartGame;
+  final ValueChanged<GameSettings>? onStartGame;
   final String? lastRemoteCommand;
-  final GameSettings? gameSettings;
-  final ValueChanged<GameSettings>? onSettingsChanged;
+  final GameSettings? initialSettings;
   final List<Player> players;
   final String selectedCategory;
   final String selectedDifficulty;
 
   const AiSynthesisScreen({
     super.key,
-    required this.onStartGame,
+    this.onStartGame,
     this.lastRemoteCommand,
-    this.gameSettings,
-    this.onSettingsChanged,
+    this.initialSettings,
     this.players = const [],
     this.selectedCategory = 'Cinema Clues',
     this.selectedDifficulty = 'ADAPTIVE',
@@ -31,112 +29,201 @@ class AiSynthesisScreen extends StatefulWidget {
 class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProviderStateMixin {
   late GameSettings _settings;
 
-  // Remote D-Pad 2D Navigation Grid
-  // Row 0: Question Count (cols 0..2) -> 5, 10, 15
-  // Row 1: Timer Duration (cols 0..3) -> 10s, 15s, 20s, 30s
-  // Row 2: AI Engine Toggles (cols 0..1) -> Adaptive Handicap, Wildcard Round
-  // Row 3: Audio Toggles (cols 0..2) -> AI Voice Host, Sound FX, Ambient Music
-  // Row 4: Start Game Button (col 0)
-  int focusRow = 4; // Start focused on Start Game button for rapid launch
-  int focusCol = 0;
+  // Active Tab:
+  // 0: Match Pace (Questions, Timer, Difficulty)
+  // 1: AI Dynamics (Handicap, Wildcard, Persona)
+  // 2: Audio & Immersion (Voice Host, SFX, Ambience)
+  // 3: Players & Handicaps (Player Profiles, Individual Tuning)
+  int currentTab = 0;
 
-  final List<int> questionCountOptions = [5, 10, 15];
+  // Focus Area:
+  // 0: Tab Selector Bar (cols 0..3)
+  // 1: Tab Content Options (subRow, subCol)
+  // 2: Bottom Action Bar (0: Start Game [OK], 1: Reset Defaults)
+  int focusArea = 0;
+  int subRow = 0;
+  int subCol = 0;
+
+  final List<Map<String, dynamic>> tabs = [
+    {'title': 'Match Pace', 'icon': Icons.tune},
+    {'title': 'AI Dynamics', 'icon': Icons.auto_awesome},
+    {'title': 'Audio & Sound', 'icon': Icons.volume_up},
+    {'title': 'Players & Roles', 'icon': Icons.group},
+  ];
+
+  final List<int> questionOptions = [5, 10, 15];
   final List<int> timerOptions = [10, 15, 20, 30];
+  final List<String> difficultyOptions = ['EASY', 'MEDIUM', 'HARD', 'ADAPTIVE'];
+  final List<String> personaOptions = ['Playful Host', 'Game Show Host', 'Strict Master'];
 
   @override
   void initState() {
     super.initState();
-    _settings = widget.gameSettings?.copyWith() ?? GameSettings();
+    _settings = widget.initialSettings?.copyWith() ?? GameSettings();
   }
 
   @override
   void didUpdateWidget(AiSynthesisScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.gameSettings != null && widget.gameSettings != oldWidget.gameSettings) {
-      _settings = widget.gameSettings!.copyWith();
-    }
-
     if (widget.lastRemoteCommand != null && widget.lastRemoteCommand != oldWidget.lastRemoteCommand) {
       final rawCmd = widget.lastRemoteCommand!;
       final cmd = rawCmd.contains('-') ? rawCmd.split('-').first : rawCmd;
+      // Handle D-Pad command safely
       _handleRemoteDpad(cmd);
     }
   }
 
   void _handleRemoteDpad(String cmd) {
     setState(() {
-      if (cmd == 'UP') {
-        if (focusRow > 0) {
-          focusRow--;
-          focusCol = _clampCol(focusRow, focusCol);
+      if (focusArea == 0) {
+        // --- FOCUS AREA 0: TAB BAR ---
+        if (cmd == 'LEFT') {
+          currentTab = (currentTab - 1 + tabs.length) % tabs.length;
+        } else if (cmd == 'RIGHT') {
+          currentTab = (currentTab + 1) % tabs.length;
+        } else if (cmd == 'DOWN' || cmd == 'OK') {
+          focusArea = 1;
+          subRow = 0;
+          subCol = 0;
         }
-      } else if (cmd == 'DOWN') {
-        if (focusRow < 4) {
-          focusRow++;
-          focusCol = _clampCol(focusRow, focusCol);
+      } else if (focusArea == 1) {
+        // --- FOCUS AREA 1: ACTIVE TAB OPTIONS ---
+        final maxR = _maxSubRowForTab(currentTab);
+
+        if (cmd == 'UP') {
+          if (subRow > 0) {
+            subRow--;
+            subCol = _clampSubCol(currentTab, subRow, subCol);
+          } else {
+            // Return to Tab Selector Bar
+            focusArea = 0;
+          }
+        } else if (cmd == 'DOWN') {
+          if (subRow < maxR) {
+            subRow++;
+            subCol = _clampSubCol(currentTab, subRow, subCol);
+          } else {
+            // Drop to Bottom Action Bar
+            focusArea = 2;
+            subCol = 0;
+          }
+        } else if (cmd == 'LEFT') {
+          final maxC = _maxSubColForTab(currentTab, subRow);
+          subCol = (subCol - 1 + (maxC + 1)) % (maxC + 1);
+        } else if (cmd == 'RIGHT') {
+          final maxC = _maxSubColForTab(currentTab, subRow);
+          subCol = (subCol + 1) % (maxC + 1);
+        } else if (cmd == 'OK') {
+          _activateOptionInTab(currentTab, subRow, subCol);
         }
-      } else if (cmd == 'LEFT') {
-        final maxC = _maxColForRow(focusRow);
-        focusCol = (focusCol - 1 + (maxC + 1)) % (maxC + 1);
-      } else if (cmd == 'RIGHT') {
-        final maxC = _maxColForRow(focusRow);
-        focusCol = (focusCol + 1) % (maxC + 1);
-      } else if (cmd == 'OK') {
-        _activateFocusedItem();
+      } else if (focusArea == 2) {
+        // --- FOCUS AREA 2: BOTTOM ACTION BAR ---
+        if (cmd == 'UP') {
+          focusArea = 1;
+          subRow = _maxSubRowForTab(currentTab);
+          subCol = 0;
+        } else if (cmd == 'LEFT' || cmd == 'RIGHT') {
+          subCol = (subCol == 0) ? 1 : 0;
+        } else if (cmd == 'OK') {
+          if (subCol == 0) {
+            _triggerStartGame();
+          } else {
+            _resetDefaults();
+          }
+        }
       }
     });
   }
 
-  int _maxColForRow(int row) {
-    switch (row) {
-      case 0:
-        return 2; // 3 options: 5, 10, 15
-      case 1:
-        return 3; // 4 options: 10, 15, 20, 30
-      case 2:
-        return 1; // 2 toggles: Adaptive, Wildcard
-      case 3:
-        return 2; // 3 toggles: Voice, SFX, Ambience
-      case 4:
+  int _maxSubRowForTab(int tab) {
+    switch (tab) {
+      case 0: // Match Pace: 0: Questions, 1: Timer, 2: Difficulty
+        return 2;
+      case 1: // AI Dynamics: 0: Handicap, 1: Wildcard, 2: Persona
+        return 2;
+      case 2: // Audio: 0: Voice Host, 1: SFX, 2: Ambient
+        return 2;
+      case 3: // Players: 0: Row 1, 1: Row 2, 2: Reset Streaks
+        return 2;
       default:
-        return 0; // 1 button: Start
+        return 0;
     }
   }
 
-  int _clampCol(int row, int col) {
-    final maxC = _maxColForRow(row);
+  int _maxSubColForTab(int tab, int row) {
+    if (tab == 0) {
+      if (row == 0) return questionOptions.length - 1; // 0..2
+      if (row == 1) return timerOptions.length - 1; // 0..3
+      if (row == 2) return difficultyOptions.length - 1; // 0..3
+    } else if (tab == 1) {
+      if (row == 0) return 0; // Toggle
+      if (row == 1) return 0; // Toggle
+      if (row == 2) return personaOptions.length - 1; // 0..2
+    } else if (tab == 2) {
+      return 0; // Each row is 1 toggle card
+    } else if (tab == 3) {
+      if (row == 0) return (widget.players.length >= 2) ? 1 : 0;
+      if (row == 1) return (widget.players.length >= 4) ? 1 : 0;
+      if (row == 2) return 0;
+    }
+    return 0;
+  }
+
+  int _clampSubCol(int tab, int row, int col) {
+    final maxC = _maxSubColForTab(tab, row);
     return col.clamp(0, maxC);
   }
 
-  void _activateFocusedItem() {
-    if (focusRow == 0) {
-      final val = questionCountOptions[focusCol];
-      _updateSettings(_settings.copyWith(questionCount: val));
-    } else if (focusRow == 1) {
-      final val = timerOptions[focusCol];
-      _updateSettings(_settings.copyWith(timerSeconds: val));
-    } else if (focusRow == 2) {
-      if (focusCol == 0) {
-        _updateSettings(_settings.copyWith(adaptiveHandicap: !_settings.adaptiveHandicap));
-      } else {
-        _updateSettings(_settings.copyWith(wildcardRound: !_settings.wildcardRound));
+  void _activateOptionInTab(int tab, int row, int col) {
+    if (tab == 0) {
+      // Match Pace
+      if (row == 0) {
+        _settings = _settings.copyWith(questionCount: questionOptions[col]);
+      } else if (row == 1) {
+        _settings = _settings.copyWith(timerSeconds: timerOptions[col]);
+      } else if (row == 2) {
+        _settings = _settings.copyWith(difficulty: difficultyOptions[col]);
       }
-    } else if (focusRow == 3) {
-      if (focusCol == 0) {
-        _updateSettings(_settings.copyWith(aiVoiceHost: !_settings.aiVoiceHost));
-      } else if (focusCol == 1) {
-        _updateSettings(_settings.copyWith(soundEffects: !_settings.soundEffects));
-      } else {
-        _updateSettings(_settings.copyWith(ambientMusic: !_settings.ambientMusic));
+    } else if (tab == 1) {
+      // AI Dynamics
+      if (row == 0) {
+        _settings = _settings.copyWith(adaptiveHandicap: !_settings.adaptiveHandicap);
+      } else if (row == 1) {
+        _settings = _settings.copyWith(wildcardRound: !_settings.wildcardRound);
+      } else if (row == 2) {
+        _settings = _settings.copyWith(aiPersona: personaOptions[col]);
       }
-    } else if (focusRow == 4) {
-      widget.onStartGame();
+    } else if (tab == 2) {
+      // Audio
+      if (row == 0) {
+        _settings = _settings.copyWith(aiVoiceHost: !_settings.aiVoiceHost);
+      } else if (row == 1) {
+        _settings = _settings.copyWith(soundEffects: !_settings.soundEffects);
+      } else if (row == 2) {
+        _settings = _settings.copyWith(ambientMusic: !_settings.ambientMusic);
+      }
+    } else if (tab == 3) {
+      // Players
+      if (row == 2) {
+        for (var p in widget.players) {
+          p.streak = 0;
+        }
+      }
     }
   }
 
-  void _updateSettings(GameSettings updated) {
-    setState(() => _settings = updated);
-    widget.onSettingsChanged?.call(updated);
+  void _resetDefaults() {
+    setState(() {
+      _settings = GameSettings();
+    });
+  }
+
+  void _triggerStartGame() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        widget.onStartGame?.call(_settings);
+      }
+    });
   }
 
   @override
@@ -153,7 +240,7 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. HEADER ROW (Overflow Protected)
+          // 1. TOP HEADER ROW (Overflow-Safe)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -200,16 +287,101 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
                   children: [
                     const Icon(Icons.settings_remote, size: 16, color: AppColors.secondary),
                     const SizedBox(width: 8),
-                    Text('D-Pad [Arrows] Navigate • [OK] Toggle', style: AppStyles.labelMd(color: AppColors.secondary)),
+                    Text(
+                      focusArea == 0
+                          ? 'D-Pad: ◄/► Switch Tab • ▼ Enter Options'
+                          : (focusArea == 1 ? 'D-Pad: ▲/▼ Rows • ◄/► Options • [OK] Toggle' : 'D-Pad: [OK] Start Game'),
+                      style: AppStyles.labelMd(color: AppColors.secondary),
+                    ),
                   ],
                 ),
               ),
             ],
           ),
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
 
-          // 2. MAIN TWO-COLUMN STUDIO GRID
+          // 2. REMOTE-ACCESSIBLE TAB BAR (Focus Area 0)
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceLow.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(
+                color: (focusArea == 0) ? AppColors.secondary : AppColors.outlineVariant.withValues(alpha: 0.35),
+                width: (focusArea == 0) ? 2.5 : 1,
+              ),
+              boxShadow: (focusArea == 0)
+                  ? [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.4), blurRadius: 20)]
+                  : [],
+            ),
+            child: Row(
+              children: [
+                for (int i = 0; i < tabs.length; i++) ...[
+                  Expanded(
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          currentTab = i;
+                          focusArea = 1;
+                          subRow = 0;
+                          subCol = 0;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(14),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: (currentTab == i)
+                              ? (focusArea == 0 ? Colors.white : AppColors.secondaryContainer)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: (focusArea == 0 && currentTab == i)
+                                ? AppColors.secondary
+                                : Colors.transparent,
+                            width: 2,
+                          ),
+                          boxShadow: (currentTab == i)
+                              ? [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.3), blurRadius: 10)]
+                              : [],
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              tabs[i]['icon'] as IconData,
+                              size: 18,
+                              color: (currentTab == i)
+                                  ? (focusArea == 0 ? Colors.black : Colors.white)
+                                  : AppColors.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              (focusArea == 0 && currentTab == i)
+                                  ? '${tabs[i]['title']} [OK]'
+                                  : tabs[i]['title'] as String,
+                              style: AppStyles.labelMd(
+                                color: (currentTab == i)
+                                    ? (focusArea == 0 ? Colors.black : Colors.white)
+                                    : AppColors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (i < tabs.length - 1) const SizedBox(width: 6),
+                ],
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 18),
+
+          // 3. MAIN WORKSPACE: 2-COLUMN VIEW (Left: AI Orb & Status • Right: Active Tab Controls)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -217,7 +389,7 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
               Expanded(
                 flex: 5,
                 child: Container(
-                  padding: const EdgeInsets.all(24),
+                  padding: const EdgeInsets.all(22),
                   decoration: BoxDecoration(
                     color: AppColors.surface.withValues(alpha: 0.75),
                     borderRadius: BorderRadius.circular(24),
@@ -228,9 +400,8 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
                   ),
                   child: Column(
                     children: [
-                      // Pulsing AI Orb
-                      const AiOrbWidget(size: 200, label: 'CORTEX-9'),
-                      const SizedBox(height: 16),
+                      const AiOrbWidget(size: 180, label: 'CORTEX-9'),
+                      const SizedBox(height: 14),
                       Text('Dynamic Match Synthesizer', style: AppStyles.headlineMd()),
                       const SizedBox(height: 4),
                       Text(
@@ -238,7 +409,7 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
                         style: AppStyles.bodyMd(color: AppColors.onSurfaceVariant),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
                       // Live Parameters Chip Bar
                       Container(
@@ -256,20 +427,20 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
                           children: [
                             _buildInfoBadge(Icons.quiz, '${_settings.questionCount} Questions'),
                             _buildDotSeparator(),
-                            _buildInfoBadge(Icons.timer, '${_settings.timerSeconds}s / Question'),
+                            _buildInfoBadge(Icons.timer, '${_settings.timerSeconds}s / Q'),
                             _buildDotSeparator(),
-                            _buildInfoBadge(Icons.hourglass_bottom, '~$estimatedMinutes Min Match'),
+                            _buildInfoBadge(Icons.hourglass_bottom, '~$estimatedMinutes Min'),
                             _buildDotSeparator(),
-                            _buildInfoBadge(Icons.category, widget.selectedCategory),
+                            _buildInfoBadge(Icons.tune, _settings.difficulty),
                           ],
                         ),
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
                       // AI Host Observation Box
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: AppColors.surfaceLowest.withValues(alpha: 0.8),
                           borderRadius: BorderRadius.circular(16),
@@ -278,8 +449,8 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.psychology, color: AppColors.secondary, size: 26),
-                            const SizedBox(width: 12),
+                            const Icon(Icons.psychology, color: AppColors.secondary, size: 24),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -287,9 +458,9 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
                                   Text('CORTEX-9 HOST LOGIC', style: AppStyles.labelMd(color: AppColors.secondary)),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '"Synthesized ${widget.selectedCategory} trivia for $playerNames. '
+                                    '"Persona: ${_settings.aiPersona}. Category: ${widget.selectedCategory}. '
                                     '${_settings.adaptiveHandicap ? "Adaptive handicap will dynamically balance point weights" : "Standard point weights applied"}. '
-                                    '${_settings.wildcardRound ? "Surprise buzzer round enabled!" : "Single phase play."}"',
+                                    '${_settings.wildcardRound ? "Surprise buzzer round enabled!" : "Standard mode."}"',
                                     style: AppStyles.bodyMd(),
                                   ),
                                 ],
@@ -299,17 +470,17 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
                         ),
                       ),
 
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 14),
 
-                      // Synthesis Checklist Indicators
-                      _buildSynthesisPill('AI Dynamic Question Bank', 'LOADED (Supabase DB)', AppColors.emeraldReady),
-                      const SizedBox(height: 8),
+                      // Status Checklist
+                      _buildSynthesisPill('AI Question Bank', 'LOADED (Supabase)', AppColors.emeraldReady),
+                      const SizedBox(height: 6),
                       _buildSynthesisPill(
-                        'Adaptive Player Handicap',
-                        _settings.adaptiveHandicap ? 'ACTIVE (Real-time tuning)' : 'DISABLED',
+                        'Adaptive Handicap',
+                        _settings.adaptiveHandicap ? 'ACTIVE' : 'DISABLED',
                         _settings.adaptiveHandicap ? AppColors.secondary : AppColors.outlineVariant,
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       _buildSynthesisPill(
                         'Voice Host & SFX Engines',
                         _settings.aiVoiceHost ? 'CORTEX-9 ONLINE' : 'MUTED',
@@ -322,242 +493,126 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
 
               const SizedBox(width: 24),
 
-              // RIGHT COLUMN (Flex 7): Interactive TV Settings Controls
+              // RIGHT COLUMN (Flex 7): ACTIVE TAB CONTENT (Focus Area 1 & 2)
               Expanded(
                 flex: 7,
                 child: Column(
                   children: [
-                    // Setting Card 1: Question Count
-                    _buildSettingsSectionCard(
-                      icon: Icons.format_list_numbered,
-                      title: 'MATCH LENGTH (QUESTION COUNT)',
-                      subtitle: 'Choose how many questions to play before the Winner Celebration',
-                      isRowActive: focusRow == 0,
-                      content: Row(
-                        children: [
-                          for (int i = 0; i < questionCountOptions.length; i++) ...[
-                            Expanded(
-                              child: _buildSelectablePill(
-                                label: '${questionCountOptions[i]} Questions',
-                                tag: i == 0 ? 'Blitz' : (i == 1 ? 'Standard' : 'Championship'),
-                                isSelected: _settings.questionCount == questionCountOptions[i],
-                                isFocused: focusRow == 0 && focusCol == i,
-                                onTap: () {
-                                  setState(() {
-                                    focusRow = 0;
-                                    focusCol = i;
-                                  });
-                                  _updateSettings(_settings.copyWith(questionCount: questionCountOptions[i]));
-                                },
-                              ),
-                            ),
-                            if (i < questionCountOptions.length - 1) const SizedBox(width: 12),
-                          ],
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    // Setting Card 2: Question Countdown Timer
-                    _buildSettingsSectionCard(
-                      icon: Icons.alarm,
-                      title: 'COUNTDOWN TIMER PER QUESTION',
-                      subtitle: 'Pacing for living room sofa buzzers and answer submission',
-                      isRowActive: focusRow == 1,
-                      content: Row(
-                        children: [
-                          for (int i = 0; i < timerOptions.length; i++) ...[
-                            Expanded(
-                              child: _buildSelectablePill(
-                                label: '${timerOptions[i]} Seconds',
-                                tag: i == 0 ? 'Speed' : (i == 1 ? 'Default' : (i == 2 ? 'Relaxed' : 'Party')),
-                                isSelected: _settings.timerSeconds == timerOptions[i],
-                                isFocused: focusRow == 1 && focusCol == i,
-                                onTap: () {
-                                  setState(() {
-                                    focusRow = 1;
-                                    focusCol = i;
-                                  });
-                                  _updateSettings(_settings.copyWith(timerSeconds: timerOptions[i]));
-                                },
-                              ),
-                            ),
-                            if (i < timerOptions.length - 1) const SizedBox(width: 10),
-                          ],
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    // Setting Card 3: AI & Game Engine Dynamics
-                    _buildSettingsSectionCard(
-                      icon: Icons.auto_awesome,
-                      title: 'AI ENGINE & GAMEPLAY DYNAMICS',
-                      subtitle: 'Intelligent handicap balance and surprise buzzer sprint',
-                      isRowActive: focusRow == 2,
-                      content: Row(
-                        children: [
-                          Expanded(
-                            child: _buildToggleCard(
-                              title: 'Adaptive Handicap',
-                              desc: 'AI adapts points & hints for younger/trailing players',
-                              icon: Icons.balance,
-                              isEnabled: _settings.adaptiveHandicap,
-                              isFocused: focusRow == 2 && focusCol == 0,
-                              onTap: () {
-                                setState(() {
-                                  focusRow = 2;
-                                  focusCol = 0;
-                                });
-                                _updateSettings(_settings.copyWith(adaptiveHandicap: !_settings.adaptiveHandicap));
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: _buildToggleCard(
-                              title: 'Wildcard Round',
-                              desc: 'Surprise double-point buzzer sprint mid-game',
-                              icon: Icons.electric_bolt,
-                              isEnabled: _settings.wildcardRound,
-                              isFocused: focusRow == 2 && focusCol == 1,
-                              onTap: () {
-                                setState(() {
-                                  focusRow = 2;
-                                  focusCol = 1;
-                                });
-                                _updateSettings(_settings.copyWith(wildcardRound: !_settings.wildcardRound));
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 14),
-
-                    // Setting Card 4: Audio & Immersion
-                    _buildSettingsSectionCard(
-                      icon: Icons.volume_up,
-                      title: 'AUDIO & LIVING ROOM IMMERSION',
-                      subtitle: 'Voice synthesis commentary, sound effects, and ambient music',
-                      isRowActive: focusRow == 3,
-                      content: Row(
-                        children: [
-                          Expanded(
-                            child: _buildToggleCard(
-                              title: 'AI Host Voice',
-                              desc: 'Spoken commentary & quips',
-                              icon: Icons.record_voice_over,
-                              isEnabled: _settings.aiVoiceHost,
-                              isFocused: focusRow == 3 && focusCol == 0,
-                              onTap: () {
-                                setState(() {
-                                  focusRow = 3;
-                                  focusCol = 0;
-                                });
-                                _updateSettings(_settings.copyWith(aiVoiceHost: !_settings.aiVoiceHost));
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _buildToggleCard(
-                              title: 'Sound FX',
-                              desc: 'Buzzers & ticking',
-                              icon: Icons.music_note,
-                              isEnabled: _settings.soundEffects,
-                              isFocused: focusRow == 3 && focusCol == 1,
-                              onTap: () {
-                                setState(() {
-                                  focusRow = 3;
-                                  focusCol = 1;
-                                });
-                                _updateSettings(_settings.copyWith(soundEffects: !_settings.soundEffects));
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _buildToggleCard(
-                              title: 'Ambient Music',
-                              desc: 'Background synth',
-                              icon: Icons.surround_sound,
-                              isEnabled: _settings.ambientMusic,
-                              isFocused: focusRow == 3 && focusCol == 2,
-                              onTap: () {
-                                setState(() {
-                                  focusRow = 3;
-                                  focusCol = 2;
-                                });
-                                _updateSettings(_settings.copyWith(ambientMusic: !_settings.ambientMusic));
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
+                    // Dynamic Content per Tab
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 250),
+                      child: _buildActiveTabContent(),
                     ),
 
                     const SizedBox(height: 18),
 
-                    // 5. PROMINENT LAUNCH CTA (Focus Row 4)
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: (focusRow == 4)
-                            ? [
-                                BoxShadow(
-                                  color: AppColors.secondary.withValues(alpha: 0.9),
-                                  blurRadius: 36,
-                                  spreadRadius: 2,
+                    // BOTTOM ACTION BAR (Focus Area 2)
+                    Row(
+                      children: [
+                        // Secondary Action: Reset Defaults (col 1)
+                        Expanded(
+                          flex: 4,
+                          child: InkWell(
+                            onTap: _resetDefaults,
+                            borderRadius: BorderRadius.circular(16),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(vertical: 20),
+                              decoration: BoxDecoration(
+                                color: (focusArea == 2 && subCol == 1)
+                                    ? Colors.white
+                                    : AppColors.surfaceHigh.withValues(alpha: 0.6),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: (focusArea == 2 && subCol == 1)
+                                      ? AppColors.secondary
+                                      : AppColors.outlineVariant.withValues(alpha: 0.3),
+                                  width: (focusArea == 2 && subCol == 1) ? 2.5 : 1,
                                 ),
-                              ]
-                            : [
-                                BoxShadow(
-                                  color: AppColors.secondary.withValues(alpha: 0.35),
-                                  blurRadius: 16,
-                                ),
-                              ],
-                      ),
-                      child: ElevatedButton(
-                        onPressed: () {
-                          setState(() => focusRow = 4);
-                          widget.onStartGame();
-                        },
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 22),
-                          backgroundColor: (focusRow == 4) ? Colors.white : AppColors.secondaryContainer,
-                          minimumSize: const Size(double.infinity, 70),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                            side: BorderSide(
-                              color: (focusRow == 4) ? AppColors.secondary : Colors.transparent,
-                              width: (focusRow == 4) ? 3.5 : 0,
-                            ),
-                          ),
-                          elevation: (focusRow == 4) ? 16 : 8,
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.play_circle_fill,
-                              color: (focusRow == 4) ? Colors.black : Colors.white,
-                              size: 32,
-                            ),
-                            const SizedBox(width: 14),
-                            Text(
-                              (focusRow == 4) ? 'START GAME [OK] ◄' : 'START GAME [OK]',
-                              style: AppStyles.headlineLg(
-                                color: (focusRow == 4) ? Colors.black : Colors.white,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.refresh,
+                                    size: 20,
+                                    color: (focusArea == 2 && subCol == 1) ? Colors.black : AppColors.onSurfaceVariant,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    (focusArea == 2 && subCol == 1) ? 'Reset [OK]' : 'Reset Defaults',
+                                    style: AppStyles.labelMd(
+                                      color: (focusArea == 2 && subCol == 1) ? Colors.black : AppColors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
+
+                        const SizedBox(width: 14),
+
+                        // Primary Action: START GAME [OK] (col 0)
+                        Expanded(
+                          flex: 8,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(18),
+                              boxShadow: (focusArea == 2 && subCol == 0)
+                                  ? [
+                                      BoxShadow(
+                                        color: AppColors.secondary.withValues(alpha: 0.9),
+                                        blurRadius: 36,
+                                        spreadRadius: 2,
+                                      ),
+                                    ]
+                                  : [
+                                      BoxShadow(
+                                        color: AppColors.secondary.withValues(alpha: 0.35),
+                                        blurRadius: 16,
+                                      ),
+                                    ],
+                            ),
+                            child: ElevatedButton(
+                              onPressed: _triggerStartGame,
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 20),
+                                backgroundColor: (focusArea == 2 && subCol == 0)
+                                    ? Colors.white
+                                    : AppColors.secondaryContainer,
+                                minimumSize: const Size(double.infinity, 64),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18),
+                                  side: BorderSide(
+                                    color: (focusArea == 2 && subCol == 0) ? AppColors.secondary : Colors.transparent,
+                                    width: (focusArea == 2 && subCol == 0) ? 3.5 : 0,
+                                  ),
+                                ),
+                                elevation: (focusArea == 2 && subCol == 0) ? 16 : 8,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.play_circle_fill,
+                                    color: (focusArea == 2 && subCol == 0) ? Colors.black : Colors.white,
+                                    size: 28,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Text(
+                                    (focusArea == 2 && subCol == 0) ? 'START GAME [OK] ◄' : 'START GAME [OK]',
+                                    style: AppStyles.headlineMd(
+                                      color: (focusArea == 2 && subCol == 0) ? Colors.black : Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -569,7 +624,469 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
     );
   }
 
+  // --- TAB CONTENT BUILDERS ---
+
+  Widget _buildActiveTabContent() {
+    switch (currentTab) {
+      case 0:
+        return _buildTabMatchPace();
+      case 1:
+        return _buildTabAiDynamics();
+      case 2:
+        return _buildTabAudio();
+      case 3:
+        return _buildTabPlayers();
+      default:
+        return _buildTabMatchPace();
+    }
+  }
+
+  // TAB 0: MATCH PACE
+  Widget _buildTabMatchPace() {
+    return Column(
+      key: const ValueKey(0),
+      children: [
+        // Row 0: Question Count
+        _buildSettingsSectionCard(
+          icon: Icons.format_list_numbered,
+          title: 'MATCH LENGTH (QUESTION COUNT)',
+          subtitle: 'Number of questions to play before the Winner Celebration',
+          isRowActive: focusArea == 1 && subRow == 0,
+          content: Row(
+            children: [
+              for (int i = 0; i < questionOptions.length; i++) ...[
+                Expanded(
+                  child: _buildSelectablePill(
+                    label: '${questionOptions[i]} Questions',
+                    tag: i == 0 ? 'Blitz' : (i == 1 ? 'Standard' : 'Championship'),
+                    isSelected: _settings.questionCount == questionOptions[i],
+                    isFocused: focusArea == 1 && subRow == 0 && subCol == i,
+                    onTap: () {
+                      setState(() {
+                        focusArea = 1;
+                        subRow = 0;
+                        subCol = i;
+                        _settings = _settings.copyWith(questionCount: questionOptions[i]);
+                      });
+                    },
+                  ),
+                ),
+                if (i < questionOptions.length - 1) const SizedBox(width: 10),
+              ],
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Row 1: Countdown Timer
+        _buildSettingsSectionCard(
+          icon: Icons.alarm,
+          title: 'COUNTDOWN TIMER PER QUESTION',
+          subtitle: 'Response window for sofa buzzers and answer selection',
+          isRowActive: focusArea == 1 && subRow == 1,
+          content: Row(
+            children: [
+              for (int i = 0; i < timerOptions.length; i++) ...[
+                Expanded(
+                  child: _buildSelectablePill(
+                    label: '${timerOptions[i]} Seconds',
+                    tag: i == 0 ? 'Speed' : (i == 1 ? 'Standard' : (i == 2 ? 'Relaxed' : 'Party')),
+                    isSelected: _settings.timerSeconds == timerOptions[i],
+                    isFocused: focusArea == 1 && subRow == 1 && subCol == i,
+                    onTap: () {
+                      setState(() {
+                        focusArea = 1;
+                        subRow = 1;
+                        subCol = i;
+                        _settings = _settings.copyWith(timerSeconds: timerOptions[i]);
+                      });
+                    },
+                  ),
+                ),
+                if (i < timerOptions.length - 1) const SizedBox(width: 8),
+              ],
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Row 2: Difficulty Level
+        _buildSettingsSectionCard(
+          icon: Icons.tune,
+          title: 'DIFFICULTY ENGINE LEVEL',
+          subtitle: 'Baseline challenge rating across all trivia question categories',
+          isRowActive: focusArea == 1 && subRow == 2,
+          content: Row(
+            children: [
+              for (int i = 0; i < difficultyOptions.length; i++) ...[
+                Expanded(
+                  child: _buildSelectablePill(
+                    label: difficultyOptions[i],
+                    tag: difficultyOptions[i] == 'ADAPTIVE' ? 'Dynamic' : 'Fixed',
+                    isSelected: _settings.difficulty == difficultyOptions[i],
+                    isFocused: focusArea == 1 && subRow == 2 && subCol == i,
+                    onTap: () {
+                      setState(() {
+                        focusArea = 1;
+                        subRow = 2;
+                        subCol = i;
+                        _settings = _settings.copyWith(difficulty: difficultyOptions[i]);
+                      });
+                    },
+                  ),
+                ),
+                if (i < difficultyOptions.length - 1) const SizedBox(width: 8),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // TAB 1: AI DYNAMICS
+  Widget _buildTabAiDynamics() {
+    return Column(
+      key: const ValueKey(1),
+      children: [
+        // Row 0: Adaptive Handicap
+        _buildSettingsSectionCard(
+          icon: Icons.balance,
+          title: 'ADAPTIVE CATCH-UP HANDICAP',
+          subtitle: 'Real-time AI assistance for younger or trailing players',
+          isRowActive: focusArea == 1 && subRow == 0,
+          content: _buildToggleCard(
+            title: 'Dynamic Catch-Up Balance',
+            desc: 'CORTEX-9 boosts hints and balances points to keep the living room match close and exciting.',
+            icon: Icons.auto_awesome,
+            isEnabled: _settings.adaptiveHandicap,
+            isFocused: focusArea == 1 && subRow == 0,
+            onTap: () {
+              setState(() {
+                focusArea = 1;
+                subRow = 0;
+                subCol = 0;
+                _settings = _settings.copyWith(adaptiveHandicap: !_settings.adaptiveHandicap);
+              });
+            },
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Row 1: Wildcard Round
+        _buildSettingsSectionCard(
+          icon: Icons.electric_bolt,
+          title: 'SURPRISE WILDCARD BUZZER SPRINT',
+          subtitle: 'High-stakes lightning round injected into match midpoint',
+          isRowActive: focusArea == 1 && subRow == 1,
+          content: _buildToggleCard(
+            title: 'Mid-Game Wildcard Round',
+            desc: 'Double-point buzzer sprint where quick fingers trigger dramatic score turnarounds.',
+            icon: Icons.flash_on,
+            isEnabled: _settings.wildcardRound,
+            isFocused: focusArea == 1 && subRow == 1,
+            onTap: () {
+              setState(() {
+                focusArea = 1;
+                subRow = 1;
+                subCol = 0;
+                _settings = _settings.copyWith(wildcardRound: !_settings.wildcardRound);
+              });
+            },
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Row 2: AI Host Persona
+        _buildSettingsSectionCard(
+          icon: Icons.psychology,
+          title: 'CORTEX-9 HOST COMMENTARY STYLE',
+          subtitle: 'Select how the AI Host speaks and interacts with players',
+          isRowActive: focusArea == 1 && subRow == 2,
+          content: Row(
+            children: [
+              for (int i = 0; i < personaOptions.length; i++) ...[
+                Expanded(
+                  child: _buildSelectablePill(
+                    label: personaOptions[i],
+                    tag: i == 0 ? 'Banter' : (i == 1 ? 'Exciting' : 'Challenging'),
+                    isSelected: _settings.aiPersona == personaOptions[i],
+                    isFocused: focusArea == 1 && subRow == 2 && subCol == i,
+                    onTap: () {
+                      setState(() {
+                        focusArea = 1;
+                        subRow = 2;
+                        subCol = i;
+                        _settings = _settings.copyWith(aiPersona: personaOptions[i]);
+                      });
+                    },
+                  ),
+                ),
+                if (i < personaOptions.length - 1) const SizedBox(width: 8),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // TAB 2: AUDIO & SOUND
+  Widget _buildTabAudio() {
+    return Column(
+      key: const ValueKey(2),
+      children: [
+        // Row 0: Voice Host
+        _buildSettingsSectionCard(
+          icon: Icons.record_voice_over,
+          title: 'AI VOICE SYNTHESIS & COMMENTARY',
+          subtitle: 'CORTEX-9 vocal reads of questions, quips, and score updates',
+          isRowActive: focusArea == 1 && subRow == 0,
+          content: _buildToggleCard(
+            title: 'Spoken AI Voice Host',
+            desc: 'Enable real-time spoken audio commentary for TV living room immersion.',
+            icon: Icons.mic,
+            isEnabled: _settings.aiVoiceHost,
+            isFocused: focusArea == 1 && subRow == 0,
+            onTap: () {
+              setState(() {
+                focusArea = 1;
+                subRow = 0;
+                subCol = 0;
+                _settings = _settings.copyWith(aiVoiceHost: !_settings.aiVoiceHost);
+              });
+            },
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Row 1: Sound FX
+        _buildSettingsSectionCard(
+          icon: Icons.music_note,
+          title: 'SOUND EFFECTS & BUZZER AUDIO',
+          subtitle: 'Tactile sound effects for buzzers, timer ticks, and streak cheers',
+          isRowActive: focusArea == 1 && subRow == 1,
+          content: _buildToggleCard(
+            title: 'Dynamic Game Sound Effects (SFX)',
+            desc: 'Countdown ticks, buzzer hits, correct chimes, and celebration fanfare.',
+            icon: Icons.volume_up,
+            isEnabled: _settings.soundEffects,
+            isFocused: focusArea == 1 && subRow == 1,
+            onTap: () {
+              setState(() {
+                focusArea = 1;
+                subRow = 1;
+                subCol = 0;
+                _settings = _settings.copyWith(soundEffects: !_settings.soundEffects);
+              });
+            },
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Row 2: Ambient Music
+        _buildSettingsSectionCard(
+          icon: Icons.surround_sound,
+          title: 'BACKGROUND ATMOSPHERIC MUSIC',
+          subtitle: 'Soft modern synth soundtracks during questions and menu browsing',
+          isRowActive: focusArea == 1 && subRow == 2,
+          content: _buildToggleCard(
+            title: 'Living Room Ambient Soundtrack',
+            desc: 'Adaptive music that builds suspense as the countdown timer nears zero.',
+            icon: Icons.audiotrack,
+            isEnabled: _settings.ambientMusic,
+            isFocused: focusArea == 1 && subRow == 2,
+            onTap: () {
+              setState(() {
+                focusArea = 1;
+                subRow = 2;
+                subCol = 0;
+                _settings = _settings.copyWith(ambientMusic: !_settings.ambientMusic);
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // TAB 3: PLAYERS & ROLES
+  Widget _buildTabPlayers() {
+    return Column(
+      key: const ValueKey(3),
+      children: [
+        _buildSettingsSectionCard(
+          icon: Icons.group,
+          title: 'ACTIVE PLAYERS IN SESSION',
+          subtitle: 'Live player profiles connected to the local room',
+          isRowActive: focusArea == 1 && (subRow == 0 || subRow == 1),
+          content: Column(
+            children: [
+              Row(
+                children: [
+                  for (int i = 0; i < widget.players.take(2).length; i++) ...[
+                    Expanded(
+                      child: _buildPlayerProfileCard(
+                        player: widget.players[i],
+                        isFocused: focusArea == 1 && subRow == 0 && subCol == i,
+                      ),
+                    ),
+                    if (i < 1) const SizedBox(width: 10),
+                  ],
+                ],
+              ),
+              if (widget.players.length > 2) ...[
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    for (int i = 2; i < widget.players.take(4).length; i++) ...[
+                      Expanded(
+                        child: _buildPlayerProfileCard(
+                          player: widget.players[i],
+                          isFocused: focusArea == 1 && subRow == 1 && subCol == (i - 2),
+                        ),
+                      ),
+                      if (i < 3) const SizedBox(width: 10),
+                    ],
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+
+        const SizedBox(height: 12),
+
+        // Action: Reset streaks
+        _buildSettingsSectionCard(
+          icon: Icons.restart_alt,
+          title: 'SESSION STREAKS & STATS',
+          subtitle: 'Clear current session win streaks and score multipliers',
+          isRowActive: focusArea == 1 && subRow == 2,
+          content: InkWell(
+            onTap: () {
+              setState(() {
+                focusArea = 1;
+                subRow = 2;
+                subCol = 0;
+                for (var p in widget.players) {
+                  p.streak = 0;
+                }
+              });
+            },
+            borderRadius: BorderRadius.circular(14),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              decoration: BoxDecoration(
+                color: (focusArea == 1 && subRow == 2)
+                    ? Colors.white
+                    : AppColors.surfaceHigh.withValues(alpha: 0.6),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: (focusArea == 1 && subRow == 2) ? AppColors.secondary : AppColors.outlineVariant.withValues(alpha: 0.3),
+                  width: (focusArea == 1 && subRow == 2) ? 2.5 : 1,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.history,
+                    size: 20,
+                    color: (focusArea == 1 && subRow == 2) ? Colors.black : AppColors.secondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    (focusArea == 1 && subRow == 2)
+                        ? 'Reset All Player Streaks to 0 [OK]'
+                        : 'Reset All Player Streaks to 0',
+                    style: AppStyles.labelMd(
+                      color: (focusArea == 1 && subRow == 2) ? Colors.black : Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   // --- SUBWIDGET HELPERS ---
+
+  Widget _buildPlayerProfileCard({required Player player, required bool isFocused}) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isFocused
+            ? Colors.white
+            : AppColors.surfaceLowest.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isFocused ? AppColors.secondary : AppColors.outlineVariant.withValues(alpha: 0.3),
+          width: isFocused ? 2.5 : 1,
+        ),
+        boxShadow: isFocused
+            ? [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.7), blurRadius: 16)]
+            : [],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: player.accentColor,
+            child: Text(
+              player.name.isNotEmpty ? player.name[0] : 'P',
+              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black, fontSize: 13),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  player.name,
+                  style: AppStyles.labelMd(color: isFocused ? Colors.black : Colors.white),
+                ),
+                Text(
+                  '${player.roleTag} • Streak: ${player.streak}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isFocused ? Colors.black87 : AppColors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppColors.secondary.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              'SYNCED',
+              style: TextStyle(
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+                color: isFocused ? Colors.black : AppColors.secondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildSettingsSectionCard({
     required IconData icon,
@@ -579,12 +1096,12 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
     required bool isRowActive,
   }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.surfaceLow.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isRowActive ? AppColors.secondary : AppColors.outlineVariant.withValues(alpha: 0.35),
+          color: isRowActive ? AppColors.secondary : AppColors.outlineVariant.withValues(alpha: 0.3),
           width: isRowActive ? 2 : 1,
         ),
       ),
@@ -593,7 +1110,7 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
         children: [
           Row(
             children: [
-              Icon(icon, color: isRowActive ? AppColors.secondary : AppColors.onSurfaceVariant, size: 20),
+              Icon(icon, color: isRowActive ? AppColors.secondary : AppColors.onSurfaceVariant, size: 18),
               const SizedBox(width: 8),
               Text(
                 title,
@@ -602,14 +1119,14 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
               const Spacer(),
               if (isRowActive)
                 Text(
-                  'D-Pad: ◄ Left | Right ► • [OK]',
+                  'D-Pad: ◄/► • [OK]',
                   style: AppStyles.labelMd(color: AppColors.secondary),
                 ),
             ],
           ),
           const SizedBox(height: 2),
           Text(subtitle, style: AppStyles.bodyMd(color: AppColors.outlineVariant)),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           content,
         ],
       ),
@@ -628,7 +1145,7 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
       borderRadius: BorderRadius.circular(14),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
         decoration: BoxDecoration(
           color: isFocused
               ? Colors.white
@@ -652,6 +1169,8 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
                 color: isFocused ? Colors.black : (isSelected ? Colors.white : AppColors.onSurface),
               ),
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
             Container(
@@ -713,7 +1232,7 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
               size: 22,
               color: isFocused ? (isEnabled ? Colors.black : Colors.white) : (isEnabled ? AppColors.secondary : AppColors.outlineVariant),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -733,15 +1252,15 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
                       fontSize: 10,
                       color: isFocused ? (isEnabled ? Colors.black54 : Colors.white70) : AppColors.outlineVariant,
                     ),
-                    maxLines: 1,
+                    maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: isEnabled ? AppColors.emeraldReady : AppColors.outlineVariant.withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(6),
@@ -774,10 +1293,10 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
 
   Widget _buildSynthesisPill(String title, String status, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: AppColors.surfaceLowest.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -785,8 +1304,8 @@ class _AiSynthesisScreenState extends State<AiSynthesisScreen> with TickerProvid
         children: [
           Row(
             children: [
-              Icon(Icons.check_circle, color: color, size: 16),
-              const SizedBox(width: 8),
+              Icon(Icons.check_circle, color: color, size: 14),
+              const SizedBox(width: 6),
               Text(title, style: AppStyles.labelMd()),
             ],
           ),

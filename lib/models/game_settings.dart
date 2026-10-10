@@ -10,6 +10,7 @@ class GameSettings {
   bool aiVoiceHost; // CORTEX-9 spoken commentary
   bool soundEffects; // Buzzers, ticking & fanfare
   bool ambientMusic; // Living room ambient audio
+  String aiPersona; // "Playful Host", "Game Show Host", "Strict Master"
 
   GameSettings({
     this.difficulty = 'ADAPTIVE',
@@ -23,6 +24,7 @@ class GameSettings {
     this.aiVoiceHost = true,
     this.soundEffects = true,
     this.ambientMusic = true,
+    this.aiPersona = 'Playful Host',
   });
 
   GameSettings copyWith({
@@ -37,6 +39,7 @@ class GameSettings {
     bool? aiVoiceHost,
     bool? soundEffects,
     bool? ambientMusic,
+    String? aiPersona,
   }) {
     return GameSettings(
       difficulty: difficulty ?? this.difficulty,
@@ -50,6 +53,7 @@ class GameSettings {
       aiVoiceHost: aiVoiceHost ?? this.aiVoiceHost,
       soundEffects: soundEffects ?? this.soundEffects,
       ambientMusic: ambientMusic ?? this.ambientMusic,
+      aiPersona: aiPersona ?? this.aiPersona,
     );
   }
 }

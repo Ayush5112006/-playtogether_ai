@@ -322,13 +322,15 @@ class _MainTVViewportState extends State<MainTVViewport> {
         );
       case 3:
         return AiSynthesisScreen(
-          onStartGame: () => setState(() {
-            gameplayQuestionIndex = 0;
-            currentScreenIndex = 4;
-          }),
+          onStartGame: (finalSettings) {
+            setState(() {
+              gameSettings = finalSettings;
+              gameplayQuestionIndex = 0;
+              currentScreenIndex = 4;
+            });
+          },
           lastRemoteCommand: remoteTag,
-          gameSettings: gameSettings,
-          onSettingsChanged: (updated) => setState(() => gameSettings = updated),
+          initialSettings: gameSettings,
           players: players,
           selectedCategory: selectedCategory,
           selectedDifficulty: selectedDifficulty,
