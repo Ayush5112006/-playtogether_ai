@@ -6,6 +6,7 @@ class SharedTopBar extends StatelessWidget {
   final String title;
   final VoidCallback? onMicTap;
   final VoidCallback? onSettingsTap;
+  final VoidCallback? onAccountTap;
   final ValueChanged<int>? onStepTap;
 
   const SharedTopBar({
@@ -14,6 +15,7 @@ class SharedTopBar extends StatelessWidget {
     this.title = 'PlayTogether AI',
     this.onMicTap,
     this.onSettingsTap,
+    this.onAccountTap,
     this.onStepTap,
   });
 
@@ -154,8 +156,9 @@ class SharedTopBar extends StatelessWidget {
                   onPressed: onSettingsTap,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.account_circle, color: AppColors.onSurfaceVariant, size: 20),
-                  onPressed: () {},
+                  icon: const Icon(Icons.account_circle, color: AppColors.secondary, size: 22),
+                  tooltip: 'Host Account & Family Profiles',
+                  onPressed: onAccountTap,
                 ),
               ],
             ),

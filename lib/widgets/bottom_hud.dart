@@ -8,6 +8,7 @@ class SharedBottomHud extends StatelessWidget {
   final VoidCallback? onBackPress;
   final VoidCallback? onLeaveRoom;
   final VoidCallback? onSettingsTap;
+  final VoidCallback? onAccountTap;
 
   const SharedBottomHud({
     super.key,
@@ -17,6 +18,7 @@ class SharedBottomHud extends StatelessWidget {
     this.onBackPress,
     this.onLeaveRoom,
     this.onSettingsTap,
+    this.onAccountTap,
   });
 
   @override
@@ -95,24 +97,30 @@ class SharedBottomHud extends StatelessWidget {
                 const SizedBox(width: 10),
                 Text('•', style: TextStyle(color: AppColors.outlineVariant)),
                 const SizedBox(width: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceHigh,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.secondary.withValues(alpha: 0.4)),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Host Code: ',
-                        style: AppStyles.labelMd(color: AppColors.secondary),
-                      ),
-                      Text(
-                        '8942',
-                        style: AppStyles.labelLg(color: AppColors.onSurface),
-                      ),
-                    ],
+                InkWell(
+                  onTap: onAccountTap,
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceHigh,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.secondary.withValues(alpha: 0.4)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.account_circle, color: AppColors.secondary, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Host Code: ',
+                          style: AppStyles.labelMd(color: AppColors.secondary),
+                        ),
+                        Text(
+                          '8942',
+                          style: AppStyles.labelLg(color: AppColors.onSurface),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ],

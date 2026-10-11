@@ -9,6 +9,7 @@ import 'widgets/top_bar.dart';
 import 'widgets/bottom_hud.dart';
 import 'widgets/dpad_remote_overlay.dart';
 import 'widgets/animated_ai_network_background.dart';
+import 'widgets/account_profile_dialog.dart';
 import 'screens/home_screen.dart';
 import 'screens/player_setup_screen.dart';
 import 'screens/game_select_screen.dart';
@@ -245,6 +246,13 @@ class _MainTVViewportState extends State<MainTVViewport> {
                   currentStep: currentScreenIndex == 0 ? 0 : (currentScreenIndex > 4 ? 4 : currentScreenIndex),
                   onMicTap: () => _handleRemoteCommand('MIC'),
                   onSettingsTap: () => setState(() => currentScreenIndex = 3),
+                  onAccountTap: () {
+                    AccountProfileDialog.show(
+                      context,
+                      players: players,
+                      activeSessionId: activeSessionId,
+                    );
+                  },
                   onStepTap: (step) {
                     setState(() {
                       if (step == 1) currentScreenIndex = 1;
@@ -267,6 +275,13 @@ class _MainTVViewportState extends State<MainTVViewport> {
                   onMicPress: () => _handleRemoteCommand('MIC'),
                   onLeaveRoom: () => setState(() => currentScreenIndex = 0),
                   onSettingsTap: () => setState(() => currentScreenIndex = 3),
+                  onAccountTap: () {
+                    AccountProfileDialog.show(
+                      context,
+                      players: players,
+                      activeSessionId: activeSessionId,
+                    );
+                  },
                 ),
               ],
             ),
