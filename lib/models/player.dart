@@ -32,6 +32,12 @@ class Player {
   String get deviceName => 'Fire TV Remote #1';
   String get teamName => name;
 
+  Map<String, dynamic> toSessionMap() => {
+    'id': id,
+    'name': name,
+    'avatarName': avatarName,
+  };
+
   static List<Player> getDefaultPlayers() {
     return [
       Player(

@@ -22,7 +22,7 @@ class AnimatedAINetworkBackground extends StatefulWidget {
 
   const AnimatedAINetworkBackground({
     super.key,
-    this.particleCount = 75,
+    this.particleCount = 30,
     this.animationSpeed = 1.0,
     this.opacity = 1.0,
     this.glowIntensity = 1.0,
@@ -30,7 +30,7 @@ class AnimatedAINetworkBackground extends StatefulWidget {
     this.backgroundColor = const Color(0xFF070812),
     this.showCentralCluster = true,
     this.centralClusterWeight = 0.45,
-    this.maxConnectionsPerParticle = 5,
+    this.maxConnectionsPerParticle = 4,
     this.reducedMotion = false,
     this.drawBackground = true,
     this.child,
@@ -155,19 +155,21 @@ class _AnimatedAINetworkBackgroundState extends State<AnimatedAINetworkBackgroun
 
   @override
   Widget build(BuildContext context) {
-    final painter = CustomPaint(
-      painter: _AINetworkPainter(
-        animationValue: _controller,
-        particles: _particles,
-        opacity: widget.opacity,
-        glowIntensity: widget.glowIntensity,
-        connectionDistance: widget.connectionDistance,
-        backgroundColor: widget.backgroundColor,
-        maxConnectionsPerParticle: widget.maxConnectionsPerParticle,
-        reducedMotion: widget.reducedMotion,
-        drawBackground: widget.drawBackground,
+    final painter = RepaintBoundary(
+      child: CustomPaint(
+        painter: _AINetworkPainter(
+          animationValue: _controller,
+          particles: _particles,
+          opacity: widget.opacity,
+          glowIntensity: widget.glowIntensity,
+          connectionDistance: widget.connectionDistance,
+          backgroundColor: widget.backgroundColor,
+          maxConnectionsPerParticle: widget.maxConnectionsPerParticle,
+          reducedMotion: widget.reducedMotion,
+          drawBackground: widget.drawBackground,
+        ),
+        child: widget.child,
       ),
-      child: widget.child,
     );
 
     if (widget.child == null) {
@@ -287,67 +289,41 @@ class _AINetworkPainter extends CustomPainter {
     );
 
     final connectionCounts = List<int>.filled(count, 0);
-    final connected = List<bool>.filled(count * count, false);
 
     final linePaint = Paint()
       ..style = PaintingStyle.stroke
+      ..isAntiAlias = true
       ..strokeWidth = 1.0;
 
-    final trianglePath = Path();
-    final trianglePaint = Paint()..style = PaintingStyle.fill;
+    final maxDistSq = connectionDistance * connectionDistance;
 
-    // 1. DYNAMIC NETWORK CONNECTIONS & LINES
+    // 1. HIGH-PERFORMANCE DYNAMIC NETWORK CONNECTIONS & LINES
     for (int i = 0; i < count; i++) {
       if (connectionCounts[i] >= maxConnectionsPerParticle) continue;
+      final p1 = positions[i];
 
       for (int j = i + 1; j < count; j++) {
         if (connectionCounts[j] >= maxConnectionsPerParticle) continue;
 
-        final p1 = positions[i];
         final p2 = positions[j];
         final dx = p1.dx - p2.dx;
         final dy = p1.dy - p2.dy;
         final distSq = dx * dx + dy * dy;
 
-        if (distSq < connectionDistance * connectionDistance) {
+        if (distSq < maxDistSq) {
           final dist = math.sqrt(distSq);
           final alphaNorm = (1.0 - (dist / connectionDistance)).clamp(0.0, 1.0);
 
           final isBothCentral = particles[i].isCentral && particles[j].isCentral;
-          final lineAlpha = alphaNorm * (isBothCentral ? 0.65 : 0.40) * opacity;
+          final lineAlpha = alphaNorm * (isBothCentral ? 0.60 : 0.35) * opacity;
 
-          if (lineAlpha > 0.02) {
+          if (lineAlpha > 0.03) {
             linePaint.color = const Color(0xFFFFD76A).withValues(alpha: lineAlpha);
             linePaint.strokeWidth = isBothCentral ? 1.2 : 0.8;
             canvas.drawLine(p1, p2, linePaint);
 
             connectionCounts[i]++;
             connectionCounts[j]++;
-            connected[i * count + j] = true;
-            connected[j * count + i] = true;
-          }
-        }
-      }
-    }
-
-    // 2. IRREGULAR TRIANGULAR MESH FACES
-    for (int i = 0; i < count; i++) {
-      for (int j = i + 1; j < count; j++) {
-        if (!connected[i * count + j]) continue;
-
-        for (int k = j + 1; k < count; k++) {
-          if (connected[i * count + k] && connected[j * count + k]) {
-            trianglePath.reset();
-            trianglePath.moveTo(positions[i].dx, positions[i].dy);
-            trianglePath.lineTo(positions[j].dx, positions[j].dy);
-            trianglePath.lineTo(positions[k].dx, positions[k].dy);
-            trianglePath.close();
-
-            final isClusterTri = particles[i].isCentral || particles[j].isCentral || particles[k].isCentral;
-            final triAlpha = (isClusterTri ? 0.06 : 0.03) * opacity * glowIntensity;
-
-            trianglePaint.color = const Color(0xFFFFE9A8).withValues(alpha: triAlpha);
-            canvas.drawPath(trianglePath, trianglePaint);
           }
         }
       }

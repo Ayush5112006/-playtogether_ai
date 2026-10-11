@@ -4,10 +4,12 @@ import '../widgets/ai_orb.dart';
 
 class AiAdaptationScreen extends StatelessWidget {
   final VoidCallback onContinue;
+  final String? lastRemoteCommand;
 
   const AiAdaptationScreen({
     super.key,
     required this.onContinue,
+    this.lastRemoteCommand,
   });
 
   @override

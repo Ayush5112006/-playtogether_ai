@@ -101,7 +101,7 @@ class GameEngine {
       lastPointsEarned = 0;
     }
 
-    if (settings.difficulty == 'Adaptive') {
+    if (settings.difficulty.toUpperCase() == 'ADAPTIVE') {
       final changed = adaptiveEngine.registerAnswer(isCorrect: isLastAnswerCorrect);
       if (changed) {
         adaptationReason = adaptiveEngine.lastReason;

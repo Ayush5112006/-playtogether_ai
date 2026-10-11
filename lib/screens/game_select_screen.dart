@@ -1,14 +1,27 @@
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
+import '../models/player.dart';
 
 class GameSelectScreen extends StatefulWidget {
   final VoidCallback onCreateGame;
   final String? lastRemoteCommand;
+  final List<Map<String, dynamic>> categories;
+  final String selectedCategory;
+  final ValueChanged<String>? onCategoryChanged;
+  final String selectedDifficulty;
+  final ValueChanged<String>? onDifficultyChanged;
+  final List<Player> players;
 
   const GameSelectScreen({
     super.key,
     required this.onCreateGame,
     this.lastRemoteCommand,
+    this.categories = const [],
+    this.selectedCategory = 'Cinema Clues',
+    this.onCategoryChanged,
+    this.selectedDifficulty = 'ADAPTIVE',
+    this.onDifficultyChanged,
+    this.players = const [],
   });
 
   @override
@@ -16,10 +29,27 @@ class GameSelectScreen extends StatefulWidget {
 }
 
 class _GameSelectScreenState extends State<GameSelectScreen> {
-  int selectedCategoryIndex = 1; // Movie Guess selected
-  String selectedDifficulty = 'ADAPTIVE';
-  String selectedDuration = '10 Min';
-  String selectedMode = 'Individual FFA';
+  int selectedCategoryIndex = 0;
+  late String currentDifficulty;
+  
+  // 4 Focus Areas for D-Pad Remote:
+  // 0: Header "START QUIZ [OK]" Button
+  // 1: Category Cards Rail (LEFT / RIGHT)
+  // 2: Difficulty Pills Rail (LEFT / RIGHT)
+  // 3: Bottom "START QUIZ [OK]" Launch Button
+  int focusArea = 1;
+
+  final List<String> difficulties = ['EASY', 'MEDIUM', 'HARD', 'ADAPTIVE'];
+
+  @override
+  void initState() {
+    super.initState();
+    currentDifficulty = widget.selectedDifficulty;
+    if (widget.categories.isNotEmpty) {
+      final idx = widget.categories.indexWhere((c) => c['name'] == widget.selectedCategory);
+      if (idx != -1) selectedCategoryIndex = idx;
+    }
+  }
 
   @override
   void didUpdateWidget(GameSelectScreen oldWidget) {
@@ -27,270 +57,444 @@ class _GameSelectScreenState extends State<GameSelectScreen> {
     if (widget.lastRemoteCommand != null && widget.lastRemoteCommand != oldWidget.lastRemoteCommand) {
       final rawCmd = widget.lastRemoteCommand!;
       final cmd = rawCmd.contains('-') ? rawCmd.split('-').first : rawCmd;
-      if (cmd == 'LEFT' || cmd == 'UP') {
-        setState(() => selectedCategoryIndex = (selectedCategoryIndex - 1 + 4) % 4);
-      } else if (cmd == 'RIGHT' || cmd == 'DOWN') {
-        setState(() => selectedCategoryIndex = (selectedCategoryIndex + 1) % 4);
+      final catCount = widget.categories.isNotEmpty ? widget.categories.length.clamp(1, 4) : 4;
+
+      if (cmd == 'LEFT') {
+        if (focusArea == 1) {
+          setState(() {
+            selectedCategoryIndex = (selectedCategoryIndex - 1 + catCount) % catCount;
+          });
+          _notifyCategoryChanged();
+        } else if (focusArea == 2) {
+          final diffIdx = difficulties.indexOf(currentDifficulty);
+          final newIdx = (diffIdx - 1 + difficulties.length) % difficulties.length;
+          setState(() => currentDifficulty = difficulties[newIdx]);
+          widget.onDifficultyChanged?.call(currentDifficulty);
+        }
+      } else if (cmd == 'RIGHT') {
+        if (focusArea == 1) {
+          setState(() {
+            selectedCategoryIndex = (selectedCategoryIndex + 1) % catCount;
+          });
+          _notifyCategoryChanged();
+        } else if (focusArea == 2) {
+          final diffIdx = difficulties.indexOf(currentDifficulty);
+          final newIdx = (diffIdx + 1) % difficulties.length;
+          setState(() => currentDifficulty = difficulties[newIdx]);
+          widget.onDifficultyChanged?.call(currentDifficulty);
+        }
+      } else if (cmd == 'DOWN') {
+        setState(() {
+          focusArea = (focusArea + 1) % 4; // Cycles 0 -> 1 -> 2 -> 3 -> 0
+        });
+      } else if (cmd == 'UP') {
+        setState(() {
+          focusArea = (focusArea - 1 + 4) % 4; // Cycles backwards
+        });
       } else if (cmd == 'OK') {
-        widget.onCreateGame();
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          if (focusArea == 0 || focusArea == 3) {
+            widget.onCreateGame();
+          } else if (focusArea == 1) {
+            _notifyCategoryChanged();
+          } else if (focusArea == 2) {
+            final diffIdx = (difficulties.indexOf(currentDifficulty) + 1) % difficulties.length;
+            setState(() => currentDifficulty = difficulties[diffIdx]);
+            widget.onDifficultyChanged?.call(currentDifficulty);
+          }
+        });
       }
+    }
+  }
+
+  void _notifyCategoryChanged() {
+    if (widget.categories.isNotEmpty && selectedCategoryIndex < widget.categories.length) {
+      final name = widget.categories[selectedCategoryIndex]['name'] as String? ?? 'General Knowledge';
+      widget.onCategoryChanged?.call(name);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    final catList = widget.categories.isNotEmpty
+        ? widget.categories
+        : [
+            {'name': 'Cinema Clues', 'emoji': '🎬', 'questionCount': 7},
+            {'name': 'Science & Cosmos', 'emoji': '🚀', 'questionCount': 7},
+            {'name': 'Pop Culture & Music', 'emoji': '🎵', 'questionCount': 5},
+            {'name': 'Animation & Family', 'emoji': '✨', 'questionCount': 5},
+            {'name': 'General Knowledge', 'emoji': '🌍', 'questionCount': 5},
+            {'name': 'Surprise Buzzer Blitz', 'emoji': '⚡', 'questionCount': 3},
+          ];
+
+    final isHeaderStartFocused = (focusArea == 0);
+    final isBottomStartFocused = (focusArea == 3);
+
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // 1. HEADER ROW (Focus Area 0: Header Start Button)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('What should we play?', style: AppStyles.headlineXl()),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Text('Pick a game or let AI adapt to ', style: AppStyles.bodyXl()),
-                      Text('Mom, Dad, Maya, ', style: AppStyles.labelLg(color: AppColors.secondary)),
-                      Text('and ', style: AppStyles.bodyXl()),
-                      Text('Aarav', style: AppStyles.labelLg(color: AppColors.secondary)),
-                    ],
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.surfaceLow,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.outlineVariant.withOpacity(0.3)),
-                ),
-                child: Row(
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(radius: 12, backgroundColor: AppColors.tertiary, child: Text('M', style: AppStyles.labelMd(color: Colors.black))),
-                    const SizedBox(width: 4),
-                    CircleAvatar(radius: 12, backgroundColor: AppColors.secondary, child: Text('D', style: AppStyles.labelMd(color: Colors.black))),
-                    const SizedBox(width: 4),
-                    CircleAvatar(radius: 12, backgroundColor: AppColors.primary, child: Text('M', style: AppStyles.labelMd(color: Colors.black))),
-                    const SizedBox(width: 4),
-                    CircleAvatar(radius: 12, backgroundColor: AppColors.amberWarning, child: Text('A', style: AppStyles.labelMd(color: Colors.black))),
-                    const SizedBox(width: 10),
-                    Text('4 Phones Connected', style: AppStyles.labelMd()),
+                    Text('What should we play?', style: AppStyles.headlineXl()),
+                    const SizedBox(height: 4),
+                    Text.rich(
+                      TextSpan(
+                        text: 'Pick a category or let AI adapt to ',
+                        style: AppStyles.bodyXl(),
+                        children: [
+                          TextSpan(
+                            text: widget.players.map((p) => p.name).join(', '),
+                            style: AppStyles.labelLg(color: AppColors.secondary),
+                          ),
+                        ],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ],
                 ),
               ),
-            ],
-          ),
+              const SizedBox(width: 16),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceLow,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.outlineVariant.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      children: [
+                        ...widget.players.map((p) => Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: CircleAvatar(
+                                radius: 12,
+                                backgroundColor: p.accentColor,
+                                child: Text(
+                                  p.name.isNotEmpty ? p.name[0] : 'P',
+                                  style: AppStyles.labelMd(color: Colors.black),
+                                ),
+                              ),
+                            )),
+                        const SizedBox(width: 6),
+                        Text('${widget.players.length} Players Synced', style: AppStyles.labelMd()),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
 
-          const SizedBox(height: 16),
-
-          // 4 GAME CATEGORY CARDS RAIL
-          Row(
-            children: [
-              _buildCategoryCard(0, 'General Trivia', '🧠', 'Test what everyone knows across science & pop culture.', '10m', 'Family Favorite', AppColors.secondary, isFocused: selectedCategoryIndex == 0),
-              const SizedBox(width: 16),
-              _buildCategoryCard(1, 'MOVIE GUESS', '🎬', 'Audio soundbites, quote mashups, and AI poster clues.', '10m', 'Popular', AppColors.secondary, isFocused: selectedCategoryIndex == 1),
-              const SizedBox(width: 16),
-              _buildCategoryCard(2, 'AI WILDCARD', '🎯', 'Dynamic live rule shifts and spontaneous mini-games.', '15m', 'AI Curated', AppColors.primary, isFocused: selectedCategoryIndex == 2),
-              const SizedBox(width: 16),
-              _buildCategoryCard(3, 'LET AI CHOOSE', '✨', 'CORTEX-9 synthesizes the perfect custom challenge.', 'Custom', 'Recommended', AppColors.tertiary, isFocused: selectedCategoryIndex == 3),
+                  // Header Start Quiz Button (Focusable: Focus Area 0)
+                  AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: isHeaderStartFocused
+                          ? [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.9), blurRadius: 28)]
+                          : [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.4), blurRadius: 10)],
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        setState(() => focusArea = 0);
+                        widget.onCreateGame();
+                      },
+                      icon: const Icon(Icons.play_arrow, color: Colors.black, size: 22),
+                      label: Text(
+                        isHeaderStartFocused ? 'START QUIZ [OK] ◄' : 'START QUIZ [OK]',
+                        style: AppStyles.labelLg(color: Colors.black),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isHeaderStartFocused ? Colors.white : AppColors.secondary,
+                        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: BorderSide(
+                            color: isHeaderStartFocused ? AppColors.secondary : Colors.transparent,
+                            width: isHeaderStartFocused ? 3 : 0,
+                          ),
+                        ),
+                        elevation: isHeaderStartFocused ? 14 : 6,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
 
           const SizedBox(height: 20),
 
-          // SETTINGS & AI INSIGHT
+          // 2. DYNAMIC CATEGORY CARDS RAIL (Focus Area 1)
+          Row(
+            children: catList.take(4).toList().asMap().entries.map((entry) {
+              final idx = entry.key;
+              final cat = entry.value;
+              final name = cat['name'] as String? ?? 'General';
+              final emoji = cat['emoji'] as String? ?? '🎯';
+              final qCount = cat['questionCount']?.toString() ?? '5';
+              final isFocused = (focusArea == 1 && selectedCategoryIndex == idx);
+
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(right: idx < 3 ? 16 : 0),
+                  child: GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        selectedCategoryIndex = idx;
+                        focusArea = 1;
+                      });
+                      _notifyCategoryChanged();
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: isFocused ? AppColors.surfaceHigh : AppColors.surfaceLow.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isFocused ? AppColors.secondary : Colors.white.withValues(alpha: 0.1),
+                          width: isFocused ? 3.5 : 1,
+                        ),
+                        boxShadow: isFocused
+                            ? [
+                                BoxShadow(
+                                  color: AppColors.secondary.withValues(alpha: 0.55),
+                                  blurRadius: 28,
+                                )
+                              ]
+                            : [
+                                const BoxShadow(color: Colors.black26, blurRadius: 10),
+                              ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(emoji, style: const TextStyle(fontSize: 32)),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: isFocused ? AppColors.secondary : AppColors.secondary.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: AppColors.secondary.withValues(alpha: 0.4)),
+                                ),
+                                child: Text(
+                                  '$qCount Qs',
+                                  style: AppStyles.labelMd(color: isFocused ? Colors.black : AppColors.secondary),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(name, style: AppStyles.headlineMd(), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 6),
+                          Text('Dynamic database quiz bank', style: AppStyles.bodyMd(), maxLines: 1, overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('10 Min', style: AppStyles.bodyMd()),
+                              Text(
+                                isFocused ? '[OK] SELECTED ◄' : 'Select',
+                                style: AppStyles.labelMd(color: isFocused ? AppColors.secondary : AppColors.outline),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+
+          const SizedBox(height: 24),
+
+          // 3. SETTINGS & AI INSIGHT RAIL (Focus Area 2: Difficulty Rail)
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Left 8 Cols: Settings Selectors
+              // Left: Difficulty Selector
               Expanded(
                 flex: 8,
-                child: Container(
-                  padding: const EdgeInsets.all(20),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceLow.withOpacity(0.8),
+                    color: AppColors.surfaceLow.withValues(alpha: 0.8),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.outlineVariant.withOpacity(0.3)),
+                    border: Border.all(
+                      color: (focusArea == 2) ? AppColors.secondary : AppColors.outlineVariant.withValues(alpha: 0.3),
+                      width: (focusArea == 2) ? 2.5 : 1,
+                    ),
+                    boxShadow: (focusArea == 2)
+                        ? [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.3), blurRadius: 20)]
+                        : [],
                   ),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildSettingRow('DIFFICULTY', ['Easy', 'Medium', 'Hard', 'ADAPTIVE (Recommended)'], selectedDifficulty, (val) => setState(() => selectedDifficulty = val)),
-                      const Divider(color: AppColors.outlineVariant, height: 20),
-                      _buildSettingRow('DURATION', ['5 Min', '10 Min (Standard)', '20 Min'], selectedDuration, (val) => setState(() => selectedDuration = val)),
-                      const Divider(color: AppColors.outlineVariant, height: 20),
-                      _buildSettingRow('MODE', ['Individual FFA', 'Co-op Teams'], selectedMode, (val) => setState(() => selectedMode = val)),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.tune, color: AppColors.secondary, size: 20),
+                              const SizedBox(width: 8),
+                              Text('GAME ENGINE PARAMETERS', style: AppStyles.labelMd(color: AppColors.secondary)),
+                            ],
+                          ),
+                          Text(
+                            (focusArea == 2) ? 'D-Pad: ◄ Left | Right ► to change • [OK] Select' : 'D-Pad: ⬆ Up | Down ⬇ to switch row',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: (focusArea == 2) ? FontWeight.bold : FontWeight.normal,
+                              color: (focusArea == 2) ? AppColors.secondary : AppColors.outlineVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Difficulty Chips
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 140,
+                            child: Text(
+                              'Difficulty Level:',
+                              style: AppStyles.labelLg(color: (focusArea == 2) ? Colors.white : AppColors.onSurfaceVariant),
+                            ),
+                          ),
+                          ...difficulties.map((d) {
+                            final isSel = currentDifficulty == d;
+                            final isChipFocused = (focusArea == 2 && isSel);
+
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 12),
+                              child: ChoiceChip(
+                                label: Text(isChipFocused ? '$d [OK]' : d),
+                                selected: isSel,
+                                onSelected: (_) {
+                                  setState(() {
+                                    currentDifficulty = d;
+                                    focusArea = 2;
+                                  });
+                                  widget.onDifficultyChanged?.call(d);
+                                },
+                                selectedColor: isChipFocused ? Colors.white : AppColors.secondaryContainer,
+                                labelStyle: AppStyles.labelMd(
+                                  color: isChipFocused ? Colors.black : (isSel ? Colors.white : AppColors.onSurfaceVariant),
+                                ),
+                                side: BorderSide(
+                                  color: isChipFocused ? AppColors.secondary : (isSel ? AppColors.secondary : AppColors.outlineVariant),
+                                  width: isChipFocused ? 3 : 1,
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                      ),
                     ],
                   ),
                 ),
               ),
 
-              const SizedBox(width: 20),
+              const SizedBox(width: 24),
 
-              // Right 4 Cols: Cortex Insight & CTA
+              // 4. RIGHT ACTION LAUNCHER (Focus Area 3: Bottom Start Button)
               Expanded(
                 flex: 4,
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [AppColors.surfaceHigh.withOpacity(0.9), AppColors.surface.withOpacity(0.7)],
-                        ),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                      ),
-                      child: Row(
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceLowest,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isBottomStartFocused ? AppColors.secondary : AppColors.primary.withValues(alpha: 0.5),
+                      width: isBottomStartFocused ? 3.5 : 1.5,
+                    ),
+                    boxShadow: isBottomStartFocused
+                        ? [BoxShadow(color: AppColors.secondary.withValues(alpha: 0.8), blurRadius: 32)]
+                        : [BoxShadow(color: AppColors.primary.withValues(alpha: 0.2), blurRadius: 20)],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.smart_toy, color: AppColors.primary, size: 24),
+                          Row(
+                            children: [
+                              const Icon(Icons.auto_awesome, color: AppColors.secondary, size: 20),
+                              const SizedBox(width: 8),
+                              Text('READY TO LAUNCH', style: AppStyles.labelMd(color: AppColors.secondary)),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('CORTEX-9 Recommends:', style: AppStyles.labelMd(color: AppColors.secondary)),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Adaptive Difficulty with Movie Guess for this group. Maya has a 4-game movie winning streak!',
-                                  style: AppStyles.bodyMd(color: AppColors.onSurface),
-                                ),
-                              ],
-                            ),
-                          ),
+                          const SizedBox(height: 8),
+                          Text('Start Dynamic Quiz', style: AppStyles.headlineLg()),
+                          const SizedBox(height: 4),
+                          Text('Database questions loaded and ready for room display.', style: AppStyles.bodyMd()),
                         ],
                       ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    ElevatedButton(
-                      onPressed: widget.onCreateGame,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
-                        backgroundColor: AppColors.primaryContainer,
-                        minimumSize: const Size(double.infinity, 64),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                        elevation: 12,
-                        shadowColor: AppColors.secondary,
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            setState(() => focusArea = 3);
+                            widget.onCreateGame();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            backgroundColor: isBottomStartFocused ? AppColors.secondaryContainer : AppColors.primaryContainer,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(
+                                color: isBottomStartFocused ? AppColors.secondary : Colors.transparent,
+                                width: isBottomStartFocused ? 3 : 0,
+                              ),
+                            ),
+                            elevation: isBottomStartFocused ? 14 : 6,
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                isBottomStartFocused ? 'START QUIZ [OK] ◄' : 'START QUIZ [OK]',
+                                style: AppStyles.headlineMd(color: Colors.white),
+                              ),
+                              const SizedBox(width: 10),
+                              const Icon(Icons.play_arrow, color: Colors.white, size: 24),
+                            ],
+                          ),
+                        ),
                       ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.auto_fix_high, color: Colors.white, size: 28),
-                          const SizedBox(width: 12),
-                          Text('CREATE GAME WITH AI [OK]', style: AppStyles.headlineMd(color: Colors.white)),
-                        ],
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildCategoryCard(int index, String title, String emoji, String desc, String time, String tag, Color color, {bool isFocused = false}) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => selectedCategoryIndex = index),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          height: 220,
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: isFocused ? AppColors.surface.withOpacity(0.95) : AppColors.surfaceLow.withOpacity(0.7),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isFocused ? AppColors.secondary : AppColors.outlineVariant.withOpacity(0.3),
-              width: isFocused ? 3 : 1,
-            ),
-            boxShadow: isFocused
-                ? [
-                    BoxShadow(color: AppColors.secondary.withOpacity(0.4), blurRadius: 25),
-                  ]
-                : [],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(emoji, style: const TextStyle(fontSize: 32)),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(tag, style: AppStyles.labelMd(color: color)),
-                  ),
-                ],
-              ),
-              Text(title, style: AppStyles.headlineMd(color: isFocused ? Colors.white : AppColors.onSurface)),
-              Text(desc, style: AppStyles.bodyMd(), maxLines: 2, overflow: TextOverflow.ellipsis),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('⏱ $time', style: AppStyles.bodyMd()),
-                  if (isFocused)
-                    Row(
-                      children: [
-                        const Icon(Icons.check_circle, size: 16, color: AppColors.secondary),
-                        const SizedBox(width: 4),
-                        Text('Selected', style: AppStyles.labelMd(color: AppColors.secondary)),
-                      ],
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSettingRow(String label, List<String> options, String currentVal, ValueChanged<String> onSelect) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: AppStyles.labelMd(color: AppColors.onSurfaceVariant)),
-        Row(
-          children: options.map((opt) {
-            final isSelected = opt.contains(currentVal) || opt == currentVal;
-            return Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: ChoiceChip(
-                label: Text(opt, style: AppStyles.labelMd(color: isSelected ? Colors.white : AppColors.onSurfaceVariant)),
-                selected: isSelected,
-                selectedColor: AppColors.secondaryContainer,
-                backgroundColor: AppColors.surfaceContainer,
-                onSelected: (selected) {
-                  if (selected) onSelect(opt);
-                },
-              ),
-            );
-          }).toList(),
-        ),
-      ],
     );
   }
 }
