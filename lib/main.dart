@@ -135,12 +135,7 @@ class _MainTVViewportState extends State<MainTVViewport> {
       remoteCommandCounter++;
       lastRemoteCommand = cmd;
 
-      if (cmd == 'OK') {
-        if (currentScreenIndex == 5) { // Adaptation -> Gameplay next q
-          gameplayQuestionIndex = 1;
-          currentScreenIndex = 4;
-        }
-      } else if (cmd == 'BACK') {
+      if (cmd == 'BACK') {
         if (currentScreenIndex > 0) {
           currentScreenIndex--;
         }
@@ -356,11 +351,19 @@ class _MainTVViewportState extends State<MainTVViewport> {
         );
       case 5:
         return AiAdaptationScreen(
+          players: players,
+          currentDifficulty: selectedDifficulty,
+          sessionId: activeSessionId,
+          lastRemoteCommand: remoteTag,
+          onApplySettings: (newDiff, challenge) {
+            setState(() {
+              selectedDifficulty = newDiff;
+            });
+          },
           onContinue: () => setState(() {
-            gameplayQuestionIndex = 1;
+            gameplayQuestionIndex = (gameplayQuestionIndex + 1) % questions.length;
             currentScreenIndex = 4;
           }),
-          lastRemoteCommand: remoteTag,
         );
       case 6:
         return WinnerRecapScreen(
