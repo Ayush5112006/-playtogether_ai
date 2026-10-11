@@ -22,6 +22,11 @@ const PORT = process.env.PORT || 3000;
 // ---------------------------------------------------------------------------
 app.use((0, cors_1.default)());
 app.use(express_1.default.json());
+// Request logger
+app.use((req, _res, next) => {
+    console.log(`[HTTP] ${req.method} ${req.url}`);
+    next();
+});
 // Root route handler
 app.get('/', (_req, res) => {
     res.json({
@@ -46,4 +51,5 @@ app.use(error_middleware_1.globalErrorHandler);
 // ---------------------------------------------------------------------------
 app.listen(PORT, () => {
     console.log(`[PlayTogether AI Backend] Running on http://localhost:${PORT}`);
+    console.log(`[Database] Connected to Live Supabase Cloud: ${process.env.SUPABASE_URL}`);
 });

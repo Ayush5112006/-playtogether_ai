@@ -3,7 +3,6 @@ import '../models/question.dart';
 import '../models/game_settings.dart';
 import 'score_calculator.dart';
 import 'adaptive_difficulty.dart';
-import '../services/local_question_service.dart';
 
 enum GameState {
   SPLASH,
@@ -41,9 +40,9 @@ class GameEngine {
 
   final AdaptiveDifficultyEngine adaptiveEngine = AdaptiveDifficultyEngine();
 
-  GameEngine() {
-    players = Player.getDefaultPlayers();
-    questions = LocalQuestionService.getFallbackQuestions();
+  GameEngine({List<Question>? initialQuestions, List<Player>? initialPlayers}) {
+    players = initialPlayers ?? Player.getDefaultPlayers();
+    questions = initialQuestions ?? [];
   }
 
   Player get activePlayer => players[activePlayerIndex % players.length];

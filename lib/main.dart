@@ -69,7 +69,7 @@ class _MainTVViewportState extends State<MainTVViewport> {
   void initState() {
     super.initState();
     players = Player.getDefaultPlayers();
-    questions = Question.getSampleQuestions();
+    questions = [];
     _loadDynamicDatabaseContent();
   }
 
@@ -322,12 +322,21 @@ class _MainTVViewportState extends State<MainTVViewport> {
         );
       case 3:
         return AiSynthesisScreen(
-          onStartGame: (finalSettings) {
+          onStartGame: (finalSettings) async {
             setState(() {
               gameSettings = finalSettings;
               gameplayQuestionIndex = 0;
               currentScreenIndex = 4;
             });
+            try {
+              final newId = await _apiService.createSession(
+                players: players.map((p) => p.toSessionMap()).toList(),
+                difficulty: selectedDifficulty,
+              );
+              if (mounted && newId.isNotEmpty) {
+                setState(() => activeSessionId = newId);
+              }
+            } catch (_) {}
           },
           lastRemoteCommand: remoteTag,
           initialSettings: gameSettings,

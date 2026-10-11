@@ -37,12 +37,18 @@ class _WinnerRecapScreenState extends State<WinnerRecapScreen> {
   }
 
   Future<void> _loadRecap() async {
-    final recap = await _apiService.fetchRecap(widget.sessionId);
-    if (mounted) {
-      setState(() {
-        dynamicRecap = recap;
-        isLoadingRecap = false;
-      });
+    try {
+      final recap = await _apiService.fetchRecap(widget.sessionId);
+      if (mounted) {
+        setState(() {
+          dynamicRecap = recap;
+          isLoadingRecap = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => isLoadingRecap = false);
+      }
     }
   }
 

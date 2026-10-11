@@ -107,24 +107,32 @@ class _GameplayScreenState extends State<GameplayScreen> {
         ? currentQ.options[selectedOptionIndex]
         : currentQ.options.first;
 
-    final isCorrectLocal = selectedOptionIndex == currentQ.correctIndex || selectedOpt.id == currentQ.correctOptionId;
-    final points = currentQ.points;
+    bool isCorrectLocal = selectedOptionIndex == currentQ.correctIndex || selectedOpt.id == currentQ.correctOptionId;
+    int points = currentQ.points;
+    String explanation = currentQ.explanation.isNotEmpty ? currentQ.explanation : 'Great attempt!';
 
     // Send real answer submission to Supabase backend
     final responseTime = (widget.questionTimerSeconds - secondsRemaining).clamp(1, widget.questionTimerSeconds).toDouble();
     if (activePlayer != null) {
-      _apiService.submitAnswer(
-        sessionId: widget.sessionId,
-        questionId: currentQ.id,
-        selectedOptionId: selectedOpt.id,
-        playerId: activePlayer.id,
-        responseTimeSeconds: responseTime,
-      );
+      try {
+        final res = await _apiService.submitAnswer(
+          sessionId: widget.sessionId,
+          questionId: currentQ.id,
+          selectedOptionId: selectedOpt.id,
+          playerId: activePlayer.id,
+          responseTimeSeconds: responseTime,
+        );
+        if (res['isCorrect'] != null) isCorrectLocal = res['isCorrect'] as bool;
+        if (res['pointsEarned'] != null) points = res['pointsEarned'] as int;
+        if (res['explanation'] != null) explanation = res['explanation'] as String;
+      } catch (_) {}
     }
+
+    if (!mounted) return;
 
     setState(() {
       lastAnswerCorrect = isCorrectLocal;
-      lastExplanation = currentQ.explanation.isNotEmpty ? currentQ.explanation : 'Great attempt!';
+      lastExplanation = explanation;
 
       if (activePlayer != null) {
         activePlayer.totalAnswered++;

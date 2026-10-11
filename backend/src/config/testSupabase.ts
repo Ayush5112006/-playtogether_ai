@@ -8,7 +8,7 @@ async function testSupabaseConnection() {
   }
 
   const { data, error } = await supabase
-    .from('game_sessions')
+    .from('sessions')
     .select('*')
     .limit(1);
 
