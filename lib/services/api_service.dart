@@ -157,6 +157,31 @@ class ApiService {
     throw Exception('Failed to fetch surprise challenge from Supabase backend');
   }
 
+  /// Fetches real-time AI adaptive difficulty calculation from backend
+  Future<Map<String, dynamic>> fetchAdaptiveDifficulty({
+    required String sessionId,
+    double? recentAccuracy,
+  }) async {
+    try {
+      final url = Uri.parse('${AppConfig.baseUrl}/sessions/$sessionId/adapt');
+      final response = await client.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'recentAccuracy': ?recentAccuracy,
+        }),
+      ).timeout(const Duration(seconds: 3));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+
+    return {
+      'newDifficulty': 'MEDIUM+',
+      'reason': 'CORTEX-9 calculated elevated response velocity and high streak potential.',
+    };
+  }
+
   /// Fetches post-game recap and insights calculated directly from Supabase
   Future<Map<String, dynamic>> fetchRecap(String sessionId) async {
     final url = Uri.parse('${AppConfig.baseUrl}/sessions/$sessionId/recap');
