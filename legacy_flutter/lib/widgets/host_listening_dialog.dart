@@ -315,10 +315,19 @@ class _HostListeningDialogState extends State<HostListeningDialog> with SingleTi
                       hintText: "Type voice command or click a prompt below (Press Enter)...",
                       hintStyle: TextStyle(color: AppColors.outlineVariant),
                       prefixIcon: const Icon(Icons.mic, color: AppColors.primary),
-                      suffixIcon: IconButton(
-                        icon: const Icon(Icons.send, color: AppColors.primary),
-                        onPressed: () => _processVoiceCommand(_speechInputController.text),
-                      ),
+                      suffixIcon: _isProcessing
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                              ),
+                            )
+                          : IconButton(
+                              icon: const Icon(Icons.send, color: AppColors.primary),
+                              onPressed: () => _processVoiceCommand(_speechInputController.text),
+                            ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide(color: AppColors.outlineVariant),

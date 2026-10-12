@@ -303,6 +303,28 @@ class _DpadRemoteOverlayState extends State<DpadRemoteOverlay> {
                   ),
                 ],
               ),
+              const SizedBox(height: 8),
+
+              // Game Lifelines Row (50/50 [L], Hint [H])
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  _buildActionButton(
+                    icon: Icons.content_cut,
+                    label: '50/50 [L]',
+                    cmd: 'LIFELINE',
+                    color: AppColors.secondary,
+                    onTap: () => widget.onCommand('LIFELINE'),
+                  ),
+                  _buildActionButton(
+                    icon: Icons.lightbulb,
+                    label: 'Hint [H]',
+                    cmd: 'HINT',
+                    color: AppColors.primary,
+                    onTap: () => widget.onCommand('HINT'),
+                  ),
+                ],
+              ),
               const SizedBox(height: 10),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -311,7 +333,7 @@ class _DpadRemoteOverlayState extends State<DpadRemoteOverlay> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  'Keys: Arrows/WASD • Enter=OK • B=Buzz',
+                  'Keys: Arrows/WASD • Enter=OK • L=50/50 • H=Hint • B=Buzz',
                   style: TextStyle(fontSize: 10, color: AppColors.outlineVariant),
                 ),
               ),

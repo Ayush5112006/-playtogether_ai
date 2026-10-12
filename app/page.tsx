@@ -212,12 +212,11 @@ export default function TVApplication() {
           normalizeCategoryToSeed(q.category) === targetCategory
         );
       });
-      const roundQuestions =
-        matched.length >= totalQCount
-          ? matched.slice(0, totalQCount)
-          : matched.length > 0
-          ? matched
-          : SEED_QUESTIONS.slice(0, totalQCount);
+      // Randomly shuffle matched questions and remaining pool so every new game has unique questions
+      const shuffledMatched = [...matched].sort(() => Math.random() - 0.5);
+      const remainingPool = SEED_QUESTIONS.filter((q) => !matched.some((m) => m.id === q.id)).sort(() => Math.random() - 0.5);
+      const fullPool = [...shuffledMatched, ...remainingPool];
+      const roundQuestions = fullPool.slice(0, totalQCount);
       setQuestions(roundQuestions.length > 0 ? roundQuestions : SEED_QUESTIONS.slice(0, 5));
       setCurrentQuestionIndex(0);
       setActivePlayerIndex(0);

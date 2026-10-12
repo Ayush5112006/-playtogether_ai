@@ -45,33 +45,66 @@ class _GameplayScreenState extends State<GameplayScreen> {
   String? lastExplanation;
   int activePlayerTurnIndex = 0;
 
+  // --- Feature 1: 50/50 Lifeline & AI Host Hint State ---
+  Set<int> eliminatedOptionIndices = {};
+  bool isHintVisible = false;
+  String? currentHintText;
+  int lifelinesRemaining = 2;
+  int hintsRemaining = 2;
+
+  // --- Feature 2: Streak Multiplier State ---
+  double lastPointsMultiplier = 1.0;
+  int lastBonusEarned = 0;
+
   final ApiService _apiService = ApiService();
 
   @override
   void didUpdateWidget(GameplayScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.questions != oldWidget.questions || widget.initialQuestionIndex != oldWidget.initialQuestionIndex) {
+      setState(() {
+        currentQuestionIndex = widget.initialQuestionIndex.clamp(0, (widget.questions.length - 1).clamp(0, 99));
+        selectedOptionIndex = 0;
+        isAnswerSubmitted = false;
+        lastAnswerCorrect = null;
+        lastExplanation = null;
+        eliminatedOptionIndices = {};
+        isHintVisible = false;
+        currentHintText = null;
+      });
+      _startTimer();
+    }
     if (widget.lastRemoteCommand != null && widget.lastRemoteCommand != oldWidget.lastRemoteCommand) {
       final rawCmd = widget.lastRemoteCommand!;
       final cmd = rawCmd.contains('-') ? rawCmd.split('-').first : rawCmd;
 
       if (cmd == 'LEFT') {
-        setState(() => selectedOptionIndex = 0);
+        _selectNonEliminatedOption(0);
       } else if (cmd == 'UP') {
-        setState(() => selectedOptionIndex = 1);
+        _selectNonEliminatedOption(1);
       } else if (cmd == 'DOWN') {
-        setState(() => selectedOptionIndex = 2);
+        _selectNonEliminatedOption(2);
       } else if (cmd == 'RIGHT') {
-        setState(() => selectedOptionIndex = 3);
+        _selectNonEliminatedOption(3);
       } else if (cmd == 'OK') {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && !isAnswerSubmitted) _submitAnswer();
         });
       } else if (cmd == 'BUZZ') {
-        // Phone buzzer fast action
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) widget.onTriggerAdaptation();
         });
+      } else if (cmd == 'LIFELINE') {
+        _useFiftyFifty();
+      } else if (cmd == 'HINT') {
+        _useAiHint();
       }
+    }
+  }
+
+  void _selectNonEliminatedOption(int targetIndex) {
+    if (!eliminatedOptionIndices.contains(targetIndex)) {
+      setState(() => selectedOptionIndex = targetIndex);
     }
   }
 
@@ -95,6 +128,51 @@ class _GameplayScreenState extends State<GameplayScreen> {
     });
   }
 
+  // --- Feature 1 Logic: 50/50 Lifeline ---
+  void _useFiftyFifty() {
+    if (lifelinesRemaining <= 0 || isAnswerSubmitted || widget.questions.isEmpty || eliminatedOptionIndices.isNotEmpty) return;
+    final currentQ = widget.questions[currentQuestionIndex];
+    final wrongIndices = <int>[];
+    for (int i = 0; i < currentQ.options.length; i++) {
+      if (i != currentQ.correctIndex && currentQ.options[i].id != currentQ.correctOptionId) {
+        wrongIndices.add(i);
+      }
+    }
+    wrongIndices.shuffle();
+    setState(() {
+      eliminatedOptionIndices = wrongIndices.take(2).toSet();
+      lifelinesRemaining--;
+      if (eliminatedOptionIndices.contains(selectedOptionIndex)) {
+        for (int i = 0; i < currentQ.options.length; i++) {
+          if (!eliminatedOptionIndices.contains(i)) {
+            selectedOptionIndex = i;
+            break;
+          }
+        }
+      }
+    });
+  }
+
+  // --- Feature 1 Logic: AI Host Hint ---
+  void _useAiHint() {
+    if (hintsRemaining <= 0 || isAnswerSubmitted || widget.questions.isEmpty || isHintVisible) return;
+    final currentQ = widget.questions[currentQuestionIndex];
+    String hint;
+    if (currentQ.quoteHighlight.isNotEmpty) {
+      hint = 'Focus closely on the key phrase: ${currentQ.quoteHighlight}';
+    } else if (currentQ.explanation.isNotEmpty) {
+      final words = currentQ.explanation.split(' ');
+      hint = words.length > 8 ? '${words.take(8).join(' ')}...' : currentQ.explanation;
+    } else {
+      hint = 'Category tip: Think back to the golden milestones of ${currentQ.category}!';
+    }
+    setState(() {
+      currentHintText = hint;
+      isHintVisible = true;
+      hintsRemaining--;
+    });
+  }
+
   Future<void> _submitAnswer() async {
     if (isAnswerSubmitted || widget.questions.isEmpty) return;
     setState(() => isAnswerSubmitted = true);
@@ -108,8 +186,21 @@ class _GameplayScreenState extends State<GameplayScreen> {
         : currentQ.options.first;
 
     bool isCorrectLocal = selectedOptionIndex == currentQ.correctIndex || selectedOpt.id == currentQ.correctOptionId;
-    int points = currentQ.points;
+    int basePoints = currentQ.points;
     String explanation = currentQ.explanation.isNotEmpty ? currentQ.explanation : 'Great attempt!';
+
+    // --- Feature 2 Logic: Streak Multipliers ---
+    double streakMultiplier = 1.0;
+    int currentStreak = activePlayer?.streak ?? 0;
+    if (isCorrectLocal) {
+      if (currentStreak >= 2) {
+        streakMultiplier = 2.0; // ⚡ 2.0x Mega Streak Multiplier!
+      } else if (currentStreak == 1) {
+        streakMultiplier = 1.5; // 🔥 1.5x Streak Multiplier!
+      }
+    }
+    int totalEarnedPoints = isCorrectLocal ? (basePoints * streakMultiplier).round() : 0;
+    int bonusEarned = totalEarnedPoints - (isCorrectLocal ? basePoints : 0);
 
     // Send real answer submission to Supabase backend
     final responseTime = (widget.questionTimerSeconds - secondsRemaining).clamp(1, widget.questionTimerSeconds).toDouble();
@@ -123,7 +214,6 @@ class _GameplayScreenState extends State<GameplayScreen> {
           responseTimeSeconds: responseTime,
         );
         if (res['isCorrect'] != null) isCorrectLocal = res['isCorrect'] as bool;
-        if (res['pointsEarned'] != null) points = res['pointsEarned'] as int;
         if (res['explanation'] != null) explanation = res['explanation'] as String;
       } catch (_) {}
     }
@@ -133,11 +223,13 @@ class _GameplayScreenState extends State<GameplayScreen> {
     setState(() {
       lastAnswerCorrect = isCorrectLocal;
       lastExplanation = explanation;
+      lastPointsMultiplier = streakMultiplier;
+      lastBonusEarned = bonusEarned;
 
       if (activePlayer != null) {
         activePlayer.totalAnswered++;
         if (isCorrectLocal) {
-          activePlayer.score += points;
+          activePlayer.score += totalEarnedPoints;
           activePlayer.correctCount++;
           activePlayer.streak++;
         } else {
@@ -147,17 +239,17 @@ class _GameplayScreenState extends State<GameplayScreen> {
     });
 
     if (isCorrectLocal) {
-      widget.onScoreUpdate(points);
+      widget.onScoreUpdate(totalEarnedPoints);
     }
 
     final totalTargetQuestions = widget.questions.length.clamp(1, widget.questionCountLimit);
 
     // Move to next question or adaptation after brief explanation display
-    Future.delayed(const Duration(milliseconds: 2200), () {
+    Future.delayed(const Duration(milliseconds: 2300), () {
       if (!mounted) return;
 
       if (currentQuestionIndex == 1 && totalTargetQuestions > 2) {
-        // Trigger AI Intervention on question 2 completion!
+        // Trigger AI Intervention on question 2 completion
         widget.onTriggerAdaptation();
       } else if (currentQuestionIndex < totalTargetQuestions - 1) {
         setState(() {
@@ -166,6 +258,9 @@ class _GameplayScreenState extends State<GameplayScreen> {
           isAnswerSubmitted = false;
           lastAnswerCorrect = null;
           lastExplanation = null;
+          eliminatedOptionIndices = {};
+          isHintVisible = false;
+          currentHintText = null;
           activePlayerTurnIndex = (activePlayerTurnIndex + 1) % widget.players.length;
         });
         _startTimer();
@@ -195,7 +290,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
       child: Column(
         children: [
-          // HUD Top Row (Question count, Countdown Timer, Active Player)
+          // HUD Top Row (Question count, Countdown Timer, Active Player & Streak Multiplier)
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -242,31 +337,65 @@ class _GameplayScreenState extends State<GameplayScreen> {
                 ),
               ),
 
-              // Active Turn Player Pill
+              // Active Turn Player Pill + Dynamic Streak Flame Badge
               if (activePlayer != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: activePlayer.accentColor.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: activePlayer.accentColor.withValues(alpha: 0.6)),
-                  ),
-                  child: Row(
-                    children: [
-                      CircleAvatar(radius: 6, backgroundColor: activePlayer.accentColor),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: activePlayer.accentColor.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: activePlayer.accentColor.withValues(alpha: 0.6)),
+                      ),
+                      child: Row(
+                        children: [
+                          CircleAvatar(radius: 6, backgroundColor: activePlayer.accentColor),
+                          const SizedBox(width: 8),
+                          Text('TURN: ${activePlayer.name.toUpperCase()}', style: AppStyles.labelMd(color: activePlayer.accentColor)),
+                          const SizedBox(width: 6),
+                          Text('(${activePlayer.roleTag})', style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                        ],
+                      ),
+                    ),
+                    if (activePlayer.streak >= 1) ...[
                       const SizedBox(width: 8),
-                      Text('TURN: ${activePlayer.name.toUpperCase()}', style: AppStyles.labelMd(color: activePlayer.accentColor)),
-                      const SizedBox(width: 6),
-                      Text('(${activePlayer.roleTag})', style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: activePlayer.streak >= 2
+                                ? [const Color(0xFFFF416C), const Color(0xFFFF4B2B)]
+                                : [const Color(0xFFF7971E), const Color(0xFFFFD200)],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: (activePlayer.streak >= 2 ? const Color(0xFFFF416C) : const Color(0xFFFFD200)).withValues(alpha: 0.5),
+                              blurRadius: 10,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            Text(activePlayer.streak >= 2 ? '⚡' : '🔥', style: const TextStyle(fontSize: 13)),
+                            const SizedBox(width: 4),
+                            Text(
+                              activePlayer.streak >= 2 ? '2.0x MEGA COMBO' : '1.5x COMBO',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
-                  ),
+                  ],
                 ),
             ],
           ),
 
-          const SizedBox(height: 18),
+          const SizedBox(height: 14),
 
-          // Category Badge
+          // Category Badge & Points Pill
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             decoration: BoxDecoration(
@@ -290,7 +419,146 @@ class _GameplayScreenState extends State<GameplayScreen> {
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+
+          // --- Feature 1 UI: Interactive Lifelines & AI Hint Strip ---
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // 50/50 Lifeline Button
+              InkWell(
+                onTap: lifelinesRemaining > 0 && !isAnswerSubmitted && eliminatedOptionIndices.isEmpty
+                    ? _useFiftyFifty
+                    : null,
+                borderRadius: BorderRadius.circular(20),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: lifelinesRemaining > 0 && eliminatedOptionIndices.isEmpty
+                        ? AppColors.secondary.withValues(alpha: 0.15)
+                        : Colors.white10,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: lifelinesRemaining > 0 && eliminatedOptionIndices.isEmpty
+                          ? AppColors.secondary.withValues(alpha: 0.8)
+                          : Colors.white24,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.content_cut,
+                        size: 15,
+                        color: lifelinesRemaining > 0 && eliminatedOptionIndices.isEmpty
+                            ? AppColors.secondary
+                            : Colors.white38,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        eliminatedOptionIndices.isNotEmpty
+                            ? '50/50 ACTIVE'
+                            : '50/50 LIFELINE ($lifelinesRemaining) [L]',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: lifelinesRemaining > 0 && eliminatedOptionIndices.isEmpty
+                              ? AppColors.secondary
+                              : Colors.white38,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 14),
+
+              // AI Host Hint Button
+              InkWell(
+                onTap: hintsRemaining > 0 && !isAnswerSubmitted && !isHintVisible
+                    ? _useAiHint
+                    : null,
+                borderRadius: BorderRadius.circular(20),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: hintsRemaining > 0 && !isHintVisible
+                        ? AppColors.primary.withValues(alpha: 0.15)
+                        : Colors.white10,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: hintsRemaining > 0 && !isHintVisible
+                          ? AppColors.primary.withValues(alpha: 0.8)
+                          : Colors.white24,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.lightbulb,
+                        size: 15,
+                        color: hintsRemaining > 0 && !isHintVisible
+                            ? AppColors.primary
+                            : Colors.white38,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        isHintVisible ? 'HINT REVEALED' : 'AI HOST HINT ($hintsRemaining) [H]',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: hintsRemaining > 0 && !isHintVisible
+                              ? AppColors.primary
+                              : Colors.white38,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          // AI Host Clue Revealer Bubble
+          if (isHintVisible && currentHintText != null)
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.only(top: 10, bottom: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    AppColors.primaryContainer.withValues(alpha: 0.35),
+                    AppColors.surfaceHigh.withValues(alpha: 0.85),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.8)),
+                boxShadow: [
+                  BoxShadow(color: AppColors.primary.withValues(alpha: 0.25), blurRadius: 15),
+                ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('🤖', style: TextStyle(fontSize: 20)),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      'AI GAME MASTER CLUE: $currentHintText',
+                      style: AppStyles.labelLg(color: AppColors.primary),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          const SizedBox(height: 14),
 
           // Question Text
           Text(
@@ -307,9 +575,9 @@ class _GameplayScreenState extends State<GameplayScreen> {
             ),
           ],
 
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
 
-          // Dynamic Answer Feedback / Explanation Pill
+          // Dynamic Answer Feedback / Explanation Pill (Includes Streak Points Breakdown)
           if (isAnswerSubmitted && lastExplanation != null)
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
@@ -334,7 +602,11 @@ class _GameplayScreenState extends State<GameplayScreen> {
                   const SizedBox(width: 10),
                   Flexible(
                     child: Text(
-                      '${(lastAnswerCorrect ?? false) ? "CORRECT! +${currentQ.points} PTS" : "INCORRECT"} • $lastExplanation',
+                      (lastAnswerCorrect ?? false)
+                          ? (lastPointsMultiplier > 1.0
+                              ? 'CORRECT! +${currentQ.points} PTS + $lastBonusEarned STREAK BONUS (🔥 ${lastPointsMultiplier}x COMBO!) • $lastExplanation'
+                              : 'CORRECT! +${currentQ.points} PTS • $lastExplanation')
+                          : 'INCORRECT • $lastExplanation',
                       style: AppStyles.labelLg(color: Colors.white),
                       textAlign: TextAlign.center,
                     ),
@@ -347,7 +619,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
 
           const SizedBox(height: 16),
 
-          // 2x2 D-PAD ANSWER GRID
+          // 2x2 D-PAD ANSWER GRID (Respects 50/50 Elimination)
           if (currentQ.options.length >= 4) ...[
             Row(
               children: [
@@ -373,7 +645,6 @@ class _GameplayScreenState extends State<GameplayScreen> {
               ],
             ),
           ] else ...[
-            // Fallback for options list with other length
             Column(
               children: currentQ.options.asMap().entries.map((e) {
                 return Padding(
@@ -386,7 +657,7 @@ class _GameplayScreenState extends State<GameplayScreen> {
 
           const SizedBox(height: 24),
 
-          // LIVE PLAYER SCORES STRIP
+          // LIVE PLAYER SCORES STRIP WITH STREAK INDICATORS
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             decoration: BoxDecoration(
@@ -408,18 +679,28 @@ class _GameplayScreenState extends State<GameplayScreen> {
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: widget.players.map((p) {
-                      final isCurrentTurn = activePlayer?.id == p.id;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                      final isCurrentTurn = widget.players.indexOf(p) == (activePlayerTurnIndex % widget.players.length);
+                      return Container(
+                        margin: const EdgeInsets.only(left: 16),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isCurrentTurn ? p.accentColor.withValues(alpha: 0.25) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isCurrentTurn ? p.accentColor : Colors.transparent,
+                            width: 1.5,
+                          ),
+                        ),
                         child: Row(
                           children: [
                             CircleAvatar(radius: 5, backgroundColor: p.accentColor),
-                            const SizedBox(width: 6),
-                            Text('${p.name}: ', style: AppStyles.bodyMd(color: isCurrentTurn ? AppColors.secondary : Colors.white)),
-                            Text('${p.score}', style: AppStyles.labelLg(color: isCurrentTurn ? AppColors.primary : AppColors.onSurface)),
-                            if (p.streak > 1) ...[
-                              const SizedBox(width: 4),
-                              Text('(${p.streak}🔥)', style: const TextStyle(fontSize: 11, color: AppColors.amberWarning)),
+                            const SizedBox(width: 8),
+                            Text(p.name, style: TextStyle(fontWeight: isCurrentTurn ? FontWeight.bold : FontWeight.normal, color: Colors.white)),
+                            const SizedBox(width: 8),
+                            Text('${p.score} PTS', style: TextStyle(fontWeight: FontWeight.bold, color: p.accentColor)),
+                            if (p.streak >= 2) ...[
+                              const SizedBox(width: 6),
+                              Text(p.streak >= 3 ? '⚡${p.streak}' : '🔥${p.streak}', style: const TextStyle(fontSize: 12)),
                             ],
                           ],
                         ),
@@ -445,6 +726,43 @@ class _GameplayScreenState extends State<GameplayScreen> {
   Widget _buildAnswerCard(int index, String optionText, String dpadLabel, IconData icon, {bool isFocused = false}) {
     final currentQ = widget.questions[currentQuestionIndex];
     final isOptionCorrect = index == currentQ.correctIndex;
+    final isEliminated = eliminatedOptionIndices.contains(index);
+
+    // If eliminated by 50/50 lifeline, render greyed out / struck through card
+    if (isEliminated) {
+      return Opacity(
+        opacity: 0.3,
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppColors.surface.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.block, color: Colors.redAccent, size: 24),
+                  const SizedBox(width: 16),
+                  Text(
+                    optionText,
+                    style: const TextStyle(
+                      color: Colors.white38,
+                      fontSize: 18,
+                      decoration: TextDecoration.lineThrough,
+                      decorationColor: Colors.redAccent,
+                    ),
+                  ),
+                ],
+              ),
+              const Text('50/50 ELIMINATED', style: TextStyle(color: Colors.redAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
+      );
+    }
 
     Color borderColor;
     Color bgColor;

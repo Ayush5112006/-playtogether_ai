@@ -114,9 +114,6 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
             }
           }
         });
-      } else if (cmd == 'MIC') {
-        final activePlayer = (focusRow == 1 || focusRow == 2) ? focusCol : 0;
-        _showEditNameDialog(activePlayer.clamp(0, playerCount - 1));
       }
     }
   }
@@ -288,10 +285,10 @@ class _PlayerSetupScreenState extends State<PlayerSetupScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.mic, color: AppColors.secondary, size: 18),
+                          const Icon(Icons.edit, color: AppColors.secondary, size: 18),
                           const SizedBox(width: 6),
                           Text(
-                            isRenameFocused ? 'Rename [MIC / OK] ◄' : 'Rename [MIC]',
+                            isRenameFocused ? 'Rename [OK] ◄' : 'Rename [OK]',
                             style: AppStyles.labelMd(color: isRenameFocused ? AppColors.secondary : AppColors.onSurface),
                           ),
                         ],

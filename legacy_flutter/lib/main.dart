@@ -71,7 +71,11 @@ class _MainTVViewportState extends State<MainTVViewport> {
   void initState() {
     super.initState();
     players = Player.getDefaultPlayers();
-    questions = [];
+    questions = Question.getShuffledQuestions(
+      category: selectedCategory,
+      difficulty: selectedDifficulty,
+      limit: gameSettings.questionCount,
+    );
     _loadDynamicDatabaseContent();
   }
 
@@ -87,7 +91,10 @@ class _MainTVViewportState extends State<MainTVViewport> {
       if (mounted) {
         setState(() {
           if (fetchedCategories.isNotEmpty) categories = fetchedCategories;
-          if (fetchedQuestions.isNotEmpty) questions = fetchedQuestions;
+          if (fetchedQuestions.isNotEmpty) {
+            final shuffled = List<Question>.from(fetchedQuestions)..shuffle();
+            questions = shuffled.take(gameSettings.questionCount).toList();
+          }
           if (newSessionId.isNotEmpty) activeSessionId = newSessionId;
         });
       }
@@ -99,9 +106,20 @@ class _MainTVViewportState extends State<MainTVViewport> {
     try {
       final catQuestions = await _apiService.fetchAllQuestions(category: categoryName);
       if (mounted && catQuestions.isNotEmpty) {
-        setState(() => questions = catQuestions);
+        final shuffled = List<Question>.from(catQuestions)..shuffle();
+        setState(() => questions = shuffled.take(gameSettings.questionCount).toList());
+        return;
       }
     } catch (_) {}
+    if (mounted) {
+      setState(() {
+        questions = Question.getShuffledQuestions(
+          category: categoryName,
+          difficulty: selectedDifficulty,
+          limit: gameSettings.questionCount,
+        );
+      });
+    }
   }
 
   @override
@@ -127,12 +145,60 @@ class _MainTVViewportState extends State<MainTVViewport> {
       } else if (event.logicalKey == LogicalKeyboardKey.keyB) {
         _handleRemoteCommand('BUZZ');
       } else if (event.logicalKey == LogicalKeyboardKey.keyM) {
-        _handleRemoteCommand('MIC');
+        _openHostListening();
+      } else if (event.logicalKey == LogicalKeyboardKey.keyL) {
+        _handleRemoteCommand('LIFELINE');
+      } else if (event.logicalKey == LogicalKeyboardKey.keyH) {
+        _handleRemoteCommand('HINT');
       }
     }
   }
 
+  bool _isHostListeningOpen = false;
+
+  void _openHostListening() {
+    if (_isHostListeningOpen) return;
+    _isHostListeningOpen = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        _isHostListeningOpen = false;
+        return;
+      }
+      HostListeningDialog.show(
+        context,
+        players: players,
+        currentCategory: selectedCategory,
+        currentDifficulty: selectedDifficulty,
+        onCategorySelected: (cat) {
+          _onCategoryChanged(cat);
+        },
+        onDifficultyChanged: (diff) {
+          setState(() => selectedDifficulty = diff);
+        },
+        onStartGame: () {
+          setState(() {
+            gameplayQuestionIndex = 0;
+            currentScreenIndex = 4;
+          });
+        },
+        onSurpriseRound: () {
+          setState(() => currentScreenIndex = 5);
+        },
+      ).then((_) {
+        _isHostListeningOpen = false;
+      }).catchError((_) {
+        _isHostListeningOpen = false;
+      });
+    });
+  }
+
   void _handleRemoteCommand(String cmd) {
+    if (cmd == 'MIC') {
+      _openHostListening();
+      return;
+    }
+
     setState(() {
       remoteCommandCounter++;
       lastRemoteCommand = cmd;
@@ -145,32 +211,6 @@ class _MainTVViewportState extends State<MainTVViewport> {
         if (currentScreenIndex == 4) {
           currentScreenIndex = 5; // Trigger AI Intervention overlay
         }
-      } else if (cmd == 'MIC') {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            HostListeningDialog.show(
-              context,
-              players: players,
-              currentCategory: selectedCategory,
-              currentDifficulty: selectedDifficulty,
-              onCategorySelected: (cat) {
-                _onCategoryChanged(cat);
-              },
-              onDifficultyChanged: (diff) {
-                setState(() => selectedDifficulty = diff);
-              },
-              onStartGame: () {
-                setState(() {
-                  gameplayQuestionIndex = 0;
-                  currentScreenIndex = 4;
-                });
-              },
-              onSurpriseRound: () {
-                setState(() => currentScreenIndex = 5);
-              },
-            );
-          }
-        });
       }
     });
   }
@@ -266,7 +306,7 @@ class _MainTVViewportState extends State<MainTVViewport> {
                 // Top App Bar
                 SharedTopBar(
                   currentStep: currentScreenIndex == 0 ? 0 : (currentScreenIndex > 4 ? 4 : currentScreenIndex),
-                  onMicTap: () => _handleRemoteCommand('MIC'),
+                  onMicTap: _openHostListening,
                   onSettingsTap: () => setState(() => currentScreenIndex = 3),
                   onAccountTap: () {
                     AccountProfileDialog.show(
@@ -294,7 +334,7 @@ class _MainTVViewportState extends State<MainTVViewport> {
                 SharedBottomHud(
                   onOkPress: () => _handleRemoteCommand('OK'),
                   onBackPress: () => _handleRemoteCommand('BACK'),
-                  onMicPress: () => _handleRemoteCommand('MIC'),
+                  onMicPress: _openHostListening,
                   onLeaveRoom: () => setState(() => currentScreenIndex = 0),
                   onSettingsTap: () => setState(() => currentScreenIndex = 3),
                   onAccountTap: () {
@@ -332,7 +372,21 @@ class _MainTVViewportState extends State<MainTVViewport> {
           totalQuestionsCount: questions.length,
           categories: categories,
           lastRemoteCommand: remoteTag,
-          onStartGame: () => setState(() => currentScreenIndex = 1),
+          onStartGame: () {
+            for (var p in players) {
+              p.score = 0;
+              p.streak = 0;
+            }
+            setState(() {
+              gameplayQuestionIndex = 0;
+              questions = Question.getShuffledQuestions(
+                category: selectedCategory,
+                difficulty: selectedDifficulty,
+                limit: gameSettings.questionCount,
+              );
+              currentScreenIndex = 1;
+            });
+          },
           onContinueSession: () => setState(() => currentScreenIndex = 4),
           onSelectCategory: (cat) {
             _onCategoryChanged(cat);
@@ -360,9 +414,19 @@ class _MainTVViewportState extends State<MainTVViewport> {
       case 3:
         return AiSynthesisScreen(
           onStartGame: (finalSettings) async {
+            final freshQuestions = Question.getShuffledQuestions(
+              category: selectedCategory,
+              difficulty: selectedDifficulty,
+              limit: finalSettings.questionCount,
+            );
+            for (var p in players) {
+              p.score = 0;
+              p.streak = 0;
+            }
             setState(() {
               gameSettings = finalSettings;
               gameplayQuestionIndex = 0;
+              questions = freshQuestions;
               currentScreenIndex = 4;
             });
             try {
@@ -420,8 +484,37 @@ class _MainTVViewportState extends State<MainTVViewport> {
         return WinnerRecapScreen(
           players: players,
           sessionId: activeSessionId,
-          onPlayAgain: () => setState(() => currentScreenIndex = 3),
-          onReturnHub: () => setState(() => currentScreenIndex = 0),
+          onPlayAgain: () {
+            final freshQuestions = Question.getShuffledQuestions(
+              category: selectedCategory,
+              difficulty: selectedDifficulty,
+              limit: gameSettings.questionCount,
+            );
+            for (var p in players) {
+              p.score = 0;
+              p.streak = 0;
+            }
+            setState(() {
+              gameplayQuestionIndex = 0;
+              questions = freshQuestions;
+              currentScreenIndex = 3;
+            });
+          },
+          onReturnHub: () {
+            for (var p in players) {
+              p.score = 0;
+              p.streak = 0;
+            }
+            setState(() {
+              gameplayQuestionIndex = 0;
+              questions = Question.getShuffledQuestions(
+                category: selectedCategory,
+                difficulty: selectedDifficulty,
+                limit: gameSettings.questionCount,
+              );
+              currentScreenIndex = 0;
+            });
+          },
           lastRemoteCommand: remoteTag,
         );
       default:
