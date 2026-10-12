@@ -1,0 +1,18 @@
+{
+  "name": "PlayTogether AI — Fire TV Edition",
+  "short_name": "PlayTogether",
+  "description": "One TV. One Remote. Every Generation Plays. AI-Powered Adaptive Family Trivia for Amazon Fire TV.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#070812",
+  "theme_color": "#070812",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64 32x32 24x24 16x16",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["games", "entertainment", "trivia"]
+}

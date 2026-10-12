@@ -47,6 +47,7 @@ app.*.map.json
 # Environment variables and secrets
 .env
 *.env
+.env*.local
 !.env.example
 
 # Node.js
@@ -54,4 +55,9 @@ node_modules/
 backend/node_modules/
 backend/dist/
 npm-debug.log*
+
+# Next.js
+.next/
+out/
+tsconfig.tsbuildinfo
 

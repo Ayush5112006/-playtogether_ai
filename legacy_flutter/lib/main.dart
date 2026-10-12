@@ -10,6 +10,7 @@ import 'widgets/bottom_hud.dart';
 import 'widgets/dpad_remote_overlay.dart';
 import 'widgets/animated_ai_network_background.dart';
 import 'widgets/account_profile_dialog.dart';
+import 'widgets/host_listening_dialog.dart';
 import 'screens/home_screen.dart';
 import 'screens/player_setup_screen.dart';
 import 'screens/game_select_screen.dart';
@@ -144,6 +145,32 @@ class _MainTVViewportState extends State<MainTVViewport> {
         if (currentScreenIndex == 4) {
           currentScreenIndex = 5; // Trigger AI Intervention overlay
         }
+      } else if (cmd == 'MIC') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            HostListeningDialog.show(
+              context,
+              players: players,
+              currentCategory: selectedCategory,
+              currentDifficulty: selectedDifficulty,
+              onCategorySelected: (cat) {
+                _onCategoryChanged(cat);
+              },
+              onDifficultyChanged: (diff) {
+                setState(() => selectedDifficulty = diff);
+              },
+              onStartGame: () {
+                setState(() {
+                  gameplayQuestionIndex = 0;
+                  currentScreenIndex = 4;
+                });
+              },
+              onSurpriseRound: () {
+                setState(() => currentScreenIndex = 5);
+              },
+            );
+          }
+        });
       }
     });
   }

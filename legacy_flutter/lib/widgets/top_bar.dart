@@ -127,25 +127,44 @@ class SharedTopBar extends StatelessWidget {
             // Right Actions & Mic Status
             Row(
               children: [
-                InkWell(
-                  onTap: onMicTap,
-                  borderRadius: BorderRadius.circular(20),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.mic, color: AppColors.primary, size: 16),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Host Listening',
-                          style: AppStyles.labelMd(color: AppColors.primary),
-                        ),
-                      ],
+                Tooltip(
+                  message: 'Tap to speak or open AI Voice Assistant [M]',
+                  child: InkWell(
+                    onTap: onMicTap,
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppColors.primary, width: 1.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.25),
+                            blurRadius: 10,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: AppColors.emeraldReady,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.mic, color: AppColors.primary, size: 16),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Host Listening',
+                            style: AppStyles.labelMd(color: AppColors.primary),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
