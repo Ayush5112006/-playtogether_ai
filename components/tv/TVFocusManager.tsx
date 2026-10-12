@@ -353,6 +353,7 @@ export interface TVFocusableProps extends React.HTMLAttributes<HTMLDivElement> {
   id: string;
   group?: string;
   isSelected?: boolean;
+  disabled?: boolean;
   onActivate?: () => void;
   className?: string;
   children?: React.ReactNode;
@@ -362,17 +363,19 @@ export function TVFocusable({
   id,
   group = 'default',
   isSelected = false,
+  disabled = false,
   onActivate,
   className = '',
   children,
   ...props
 }: TVFocusableProps) {
   const { activeFocusId, setActiveFocusId, registerFocusable } = useTVFocus();
-  const isFocused = activeFocusId === id;
+  const isFocused = !disabled && activeFocusId === id;
 
   useEffect(() => {
+    if (disabled) return;
     return registerFocusable(id, group);
-  }, [id, group, registerFocusable]);
+  }, [id, group, registerFocusable, disabled]);
 
   return (
     <div

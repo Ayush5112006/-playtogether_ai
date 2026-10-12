@@ -51,7 +51,7 @@ describe('Sessions & Seed Data Integration', () => {
     const testIp = 'test-ip-127.0.0.1';
     // 5 requests within limit
     for (let i = 0; i < 5; i++) {
-      const allowed = checkRateLimit(testIp, 10, 60000);
+      const allowed = checkRateLimit(testIp, 'session:create', 10, 60);
       expect(allowed.allowed).toBe(true);
     }
   });

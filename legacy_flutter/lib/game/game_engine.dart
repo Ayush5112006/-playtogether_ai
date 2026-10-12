@@ -5,26 +5,26 @@ import 'score_calculator.dart';
 import 'adaptive_difficulty.dart';
 
 enum GameState {
-  SPLASH,
-  HOME,
-  PLAYER_SETUP,
-  PLAYER_PICKER,
-  GAME_MODE,
-  GAME_SETTINGS,
-  GAME_CREATION,
-  ROUND_INTRO,
-  QUESTION,
-  ANSWER_RESULT,
-  SCORE_UPDATE,
-  AI_ADAPTATION,
-  SURPRISE_ROUND,
-  FINAL_ROUND,
-  WINNER,
-  RECAP
+  splash,
+  home,
+  playerSetup,
+  playerPicker,
+  gameMode,
+  gameSettings,
+  gameCreation,
+  roundIntro,
+  question,
+  answerResult,
+  scoreUpdate,
+  aiAdaptation,
+  surpriseRound,
+  finalRound,
+  winner,
+  recap
 }
 
 class GameEngine {
-  GameState currentState = GameState.HOME;
+  GameState currentState = GameState.home;
   List<Player> players = [];
   GameSettings settings = GameSettings();
   List<Question> questions = [];
@@ -91,7 +91,7 @@ class GameEngine {
         isCorrect: true,
         baseValue: q.pointValue,
         streak: activePlayer.streak,
-        isBonusRound: currentState == GameState.SURPRISE_ROUND,
+        isBonusRound: currentState == GameState.surpriseRound,
         remainingSeconds: remainingSeconds,
       );
       activePlayer.score += lastPointsEarned;

@@ -43,7 +43,7 @@ class _TVFocusCardState extends State<TVFocusCard> {
           height: widget.height,
           width: widget.width,
           padding: widget.padding,
-          transform: activeFocus ? (Matrix4.identity()..scale(1.04)) : Matrix4.identity(),
+          transform: activeFocus ? (Matrix4.diagonal3Values(1.04, 1.04, 1.0)) : Matrix4.identity(),
           transformAlignment: Alignment.center,
           decoration: BoxDecoration(
             color: activeFocus ? AppColors.surfaceHigh : AppColors.surfaceContainer,

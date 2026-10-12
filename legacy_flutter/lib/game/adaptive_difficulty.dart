@@ -1,4 +1,4 @@
-enum DifficultyLevel { EASY, MEDIUM, HARD }
+enum DifficultyLevel { easy, medium, hard }
 
 class AdaptiveDifficultyEngine {
   DifficultyLevel currentLevel;
@@ -7,18 +7,18 @@ class AdaptiveDifficultyEngine {
   String? lastReason;
 
   AdaptiveDifficultyEngine({
-    this.currentLevel = DifficultyLevel.MEDIUM,
+    this.currentLevel = DifficultyLevel.medium,
     this.consecutiveCorrect = 0,
     this.consecutiveIncorrect = 0,
   });
 
   String get currentDifficultyString {
     switch (currentLevel) {
-      case DifficultyLevel.EASY:
+      case DifficultyLevel.easy:
         return 'EASY';
-      case DifficultyLevel.MEDIUM:
+      case DifficultyLevel.medium:
         return 'MEDIUM';
-      case DifficultyLevel.HARD:
+      case DifficultyLevel.hard:
         return 'HARD';
     }
   }
@@ -31,12 +31,12 @@ class AdaptiveDifficultyEngine {
       consecutiveCorrect++;
       consecutiveIncorrect = 0;
 
-      if (consecutiveCorrect >= 2 && currentLevel != DifficultyLevel.HARD) {
-        if (currentLevel == DifficultyLevel.EASY) {
-          currentLevel = DifficultyLevel.MEDIUM;
+      if (consecutiveCorrect >= 2 && currentLevel != DifficultyLevel.hard) {
+        if (currentLevel == DifficultyLevel.easy) {
+          currentLevel = DifficultyLevel.medium;
           lastReason = "You're building great momentum! Shifting difficulty to Medium.";
-        } else if (currentLevel == DifficultyLevel.MEDIUM) {
-          currentLevel = DifficultyLevel.HARD;
+        } else if (currentLevel == DifficultyLevel.medium) {
+          currentLevel = DifficultyLevel.hard;
           lastReason = "You're on fire! The next challenge is getting harder (Hard).";
         }
         consecutiveCorrect = 0;
@@ -46,12 +46,12 @@ class AdaptiveDifficultyEngine {
       consecutiveIncorrect++;
       consecutiveCorrect = 0;
 
-      if (consecutiveIncorrect >= 2 && currentLevel != DifficultyLevel.EASY) {
-        if (currentLevel == DifficultyLevel.HARD) {
-          currentLevel = DifficultyLevel.MEDIUM;
+      if (consecutiveIncorrect >= 2 && currentLevel != DifficultyLevel.easy) {
+        if (currentLevel == DifficultyLevel.hard) {
+          currentLevel = DifficultyLevel.medium;
           lastReason = "Let's tune the pace. Shifting difficulty back to Medium.";
-        } else if (currentLevel == DifficultyLevel.MEDIUM) {
-          currentLevel = DifficultyLevel.EASY;
+        } else if (currentLevel == DifficultyLevel.medium) {
+          currentLevel = DifficultyLevel.easy;
           lastReason = "Let's build momentum! The next question will be a little easier (Easy).";
         }
         consecutiveIncorrect = 0;
