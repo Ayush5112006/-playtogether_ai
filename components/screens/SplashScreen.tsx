@@ -16,14 +16,28 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
   useEffect(() => {
     const timer = setTimeout(() => {
       onFinish();
-    }, 2400);
-    return () => clearTimeout(timer);
+    }, 1800);
+
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowRight') {
+        onFinish();
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('keydown', handleKey);
+    };
   }, [onFinish]);
 
   return (
-    <div className="relative w-full h-full flex flex-col items-center justify-center select-none text-center animate-fadeIn">
+    <div
+      onClick={onFinish}
+      className="relative w-full h-full flex flex-col items-center justify-center select-none text-center animate-fadeIn cursor-pointer"
+    >
       <div className="mb-8">
-        <AIObsorbOrb size="hero" label="CORTEX-9" />
+        <AIObsorbOrb size="hero" label="AI HOST" />
       </div>
 
       <h1 className="font-space font-extrabold text-5xl md:text-7xl text-white tracking-tight drop-shadow-2xl mb-4">
@@ -35,7 +49,7 @@ export function SplashScreen({ onFinish }: SplashScreenProps) {
       </div>
 
       <div className="absolute bottom-10 text-xs font-mono text-slate-500">
-        Fire TV Living Room Experience • Initializing CORTEX-9 Matrix...
+        Fire TV Living Room Experience • Press [OK] to Start
       </div>
     </div>
   );

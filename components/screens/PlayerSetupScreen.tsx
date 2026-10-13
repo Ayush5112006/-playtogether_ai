@@ -67,16 +67,17 @@ export function PlayerSetupScreen({
   }, [players]);
 
   useEffect(() => {
-    setActiveFocusId('setup-btn-continue-top');
+    setActiveFocusId('setup-card-edit-0');
   }, [setActiveFocusId]);
 
   const handleProceed = () => {
+    if (localPlayers.length < 2) return;
     if (onComplete) onComplete(localPlayers);
     else if (onContinue) onContinue();
   };
 
   const handleConfirmAddPlayer = () => {
-    if (localPlayers.length >= 8) return;
+    if (localPlayers.length >= 4) return;
     const trimmed = newPlayerName.trim() || `Player ${localPlayers.length + 1}`;
     const newPlayer: Player = {
       id: `p_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
@@ -96,7 +97,7 @@ export function PlayerSetupScreen({
   };
 
   const handleRemove = (id: string) => {
-    if (localPlayers.length <= 1) return;
+    if (localPlayers.length <= 2) return;
     const updated = localPlayers.filter((p) => p.id !== id);
     setLocalPlayers(updated);
     onRemovePlayer?.(id);
@@ -129,16 +130,16 @@ export function PlayerSetupScreen({
           <h1 className="font-space font-extrabold text-3xl md:text-4xl text-white tracking-tight flex items-center gap-3">
             <span>Who’s playing?</span>
             <span className="text-secondary text-sm md:text-base font-mono font-normal">
-              ({localPlayers.length} players synced • Max 8)
+              ({localPlayers.length} of 4 Players • Min 2)
             </span>
           </h1>
           <p className="font-outfit text-xs text-slate-400 mt-0.5">
-            Use remote D-Pad [Arrows] to navigate • Press [OK] to select or edit
+            Use remote D-Pad [Arrows] to navigate • Press [OK] to select or edit avatar
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          {localPlayers.length < 8 && (
+          {localPlayers.length < 4 ? (
             <TVFocusable
               id="setup-btn-add-top"
               group="setup-header"
@@ -148,15 +149,23 @@ export function PlayerSetupScreen({
               <UserPlus className="w-4 h-4 text-cyan-400" />
               <span>+ ADD PLAYER [OK]</span>
             </TVFocusable>
+          ) : (
+            <span className="text-xs font-mono text-slate-400 px-3 py-1 rounded-xl bg-surface border border-outline-variant">
+              Max 4 Players
+            </span>
           )}
 
           <TVFocusable
             id="setup-btn-continue-top"
             group="setup-header"
             onActivate={handleProceed}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-2xl bg-secondary text-slate-950 font-space font-bold text-sm tracking-wide shadow-lg hover:brightness-110 active:scale-95 transition"
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl font-space font-bold text-sm tracking-wide shadow-lg transition ${
+              localPlayers.length >= 2
+                ? 'bg-secondary text-slate-950 hover:brightness-110 active:scale-95'
+                : 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-50'
+            }`}
           >
-            <span>CONTINUE [OK]</span>
+            <span>CHOOSE GAME MODE [OK]</span>
             <ArrowRight className="w-4 h-4" />
           </TVFocusable>
         </div>
@@ -208,7 +217,7 @@ export function PlayerSetupScreen({
                   <span>Edit Profile</span>
                 </TVFocusable>
 
-                {localPlayers.length > 1 && (
+                {localPlayers.length > 2 && (
                   <TVFocusable
                     id={`setup-card-remove-${idx}`}
                     group="setup-players"
@@ -224,7 +233,7 @@ export function PlayerSetupScreen({
           ))}
 
           {/* "+ Add New Player" Empty Slot Card */}
-          {localPlayers.length < 8 && (
+          {localPlayers.length < 4 && (
             <TVFocusable
               id="setup-card-add-slot"
               group="setup-players"

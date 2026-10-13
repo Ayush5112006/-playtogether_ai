@@ -117,10 +117,6 @@ export default function TVApplication() {
       setIsProfileOpen(false);
       return;
     }
-    if (currentScreen === 'SETTINGS') {
-      transitionTo('HOME');
-      return;
-    }
 
     const fallback = resolveBackState(currentScreen);
     if (fallback) {
@@ -484,8 +480,9 @@ export default function TVApplication() {
           {currentScreen === 'HOME' && (
             <HomeScreen
               players={players}
+              onStartGame={() => transitionTo('PLAYER_SETUP')}
               onQuickPlay={() => handleStartGeneration(players, 'family-adaptive', 'mixed')}
-              onCustomGame={() => transitionTo('GAME_MODE')}
+              onCustomGame={() => transitionTo('PLAYER_SETUP')}
               onSettings={() => transitionTo('SETTINGS')}
               onSelectCategory={(categoryName) => {
                 const norm = normalizeCategoryToSeed(categoryName);
@@ -494,18 +491,6 @@ export default function TVApplication() {
               }}
               onAddFamilyMember={(newMember) => setPlayers((prev) => [...prev, newMember])}
               onRemoveFamilyMember={(id) => setPlayers((prev) => prev.filter((p) => p.id !== id))}
-            />
-          )}
-
-          {currentScreen === 'GAME_MODE' && (
-            <GameModeScreen
-              players={players}
-              onSelectMode={(mode: any, cat: any) => {
-                setSelectedMode(mode);
-                setSelectedCategory(cat || 'science');
-                transitionTo('PLAYER_SETUP');
-              }}
-              onBack={() => transitionTo('HOME')}
             />
           )}
 
@@ -524,9 +509,9 @@ export default function TVApplication() {
               }}
               onComplete={(roster: Player[]) => {
                 setPlayers(roster);
-                handleStartGeneration(roster, selectedMode, selectedCategory, gameSettings);
+                transitionTo('GAME_MODE');
               }}
-              onBack={() => transitionTo('GAME_MODE')}
+              onBack={() => transitionTo('HOME')}
             />
           )}
 
@@ -546,6 +531,17 @@ export default function TVApplication() {
             />
           )}
 
+          {currentScreen === 'GAME_MODE' && (
+            <GameModeScreen
+              players={players}
+              onSelectMode={(mode: any, cat: any) => {
+                setSelectedMode(mode);
+                setSelectedCategory(cat || 'science');
+                transitionTo('SETTINGS');
+              }}
+              onBack={() => transitionTo('PLAYER_SETUP')}
+            />
+          )}
 
           {currentScreen === 'SETTINGS' && (
             <SettingsScreen
@@ -555,7 +551,7 @@ export default function TVApplication() {
               selectedDifficulty={gameSettings.difficulty}
               onUpdateSettings={(newSettings) => setGameSettings(newSettings)}
               onStartGame={() => handleStartGeneration(players, selectedMode, selectedCategory, gameSettings)}
-              onBack={() => transitionTo('HOME')}
+              onBack={() => transitionTo('GAME_MODE')}
             />
           )}
 
@@ -659,7 +655,7 @@ export default function TVApplication() {
                 createdAt: new Date().toISOString(),
               }}
               players={players}
-              reason="CORTEX-9: Detected inter-generational synergy imbalance. Relaxing pacing & boosting underdog multipliers."
+              reason="Lead players are on a hot streak! Raising questions to HARD difficulty to test the family, with extra lifeline hints active for players finding their rhythm."
               onContinue={() => transitionTo('GAMEPLAY')}
             />
           )}

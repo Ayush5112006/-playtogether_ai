@@ -48,10 +48,10 @@ describe('Authoritative Session State Machine', () => {
 
   describe('Fire TV Hardware Remote BACK Key Resolution', () => {
     it('maps previous logical state correctly', () => {
-      expect(getPreviousLogicalState('PLAYER_SETUP')).toBe('GAME_MODE');
+      expect(getPreviousLogicalState('PLAYER_SETUP')).toBe('HOME');
       expect(getPreviousLogicalState('PLAYER_PICKER')).toBe('PLAYER_SETUP');
-      expect(getPreviousLogicalState('GAME_MODE')).toBe('HOME');
-      expect(getPreviousLogicalState('SETTINGS')).toBe('HOME');
+      expect(getPreviousLogicalState('GAME_MODE')).toBe('PLAYER_SETUP');
+      expect(getPreviousLogicalState('SETTINGS')).toBe('GAME_MODE');
       expect(getPreviousLogicalState('GAMEPLAY')).toBe('HOME');
       expect(getPreviousLogicalState('WINNER')).toBe('HOME');
       expect(getPreviousLogicalState('RECAP')).toBe('WINNER');

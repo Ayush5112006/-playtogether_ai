@@ -33,7 +33,7 @@ export const GameSettingsSchema = z.object({
 
 export const CreateSessionSchema = z.object({
   sessionId: z.string().min(3).max(64).optional(),
-  players: z.array(PlayerSchema).min(1, 'Must have at least 1 player').max(8, 'Cannot have more than 8 players'),
+  players: z.array(PlayerSchema).min(2, 'Must have at least 2 players').max(4, 'Cannot have more than 4 players'),
   difficulty: z.enum(['EASY', 'MEDIUM', 'HARD', 'ADAPTIVE']).default('ADAPTIVE'),
   settings: GameSettingsSchema.optional(),
   category: z.string().optional(),

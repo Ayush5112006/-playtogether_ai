@@ -12,7 +12,7 @@ import { AIObsorbOrb } from '../tv/AIObsorbOrb';
 import { Player, GameSettings, DifficultyStrategy } from '@/lib/types';
 
 const DEFAULT_SETTINGS: GameSettings = {
-  questionCount: 5,
+  questionCount: 10,
   timerSeconds: 15,
   difficulty: 'ADAPTIVE',
   persona: 'Playful Host',
@@ -52,7 +52,7 @@ export function SettingsScreen({
   }, [settings]);
 
   useEffect(() => {
-    setActiveFocusId('settings-btn-start');
+    setActiveFocusId('settings-diff-ADAPTIVE');
   }, [setActiveFocusId]);
 
   const playerNames = (players || []).map((p) => p.name).join(', ') || 'All Family';
@@ -99,11 +99,11 @@ export function SettingsScreen({
         {/* Left 5 Columns: Dynamic Match Synthesizer AI Card */}
         <div className="col-span-5 p-7 rounded-3xl bg-surface/85 border border-outline-variant/50 backdrop-blur-md shadow-2xl flex flex-col items-center text-center justify-between">
           <div className="my-2">
-            <AIObsorbOrb size="lg" label="CORTEX-9" />
+            <AIObsorbOrb size="lg" label="AI HOST" />
           </div>
 
           <h2 className="font-space font-bold text-2xl text-white tracking-tight mt-2 mb-1">
-            Dynamic Match Synthesizer
+            Game Master Settings
           </h2>
           <p className="font-outfit text-xs text-slate-400 mb-4">
             Engine calibrated for <strong className="text-secondary">{playerNames}</strong>
@@ -125,14 +125,14 @@ export function SettingsScreen({
             </span>
           </div>
 
-          {/* CORTEX-9 Host Logic Briefing */}
+          {/* Game Master Host Logic Briefing */}
           <div className="w-full p-4 rounded-2xl bg-slate-950/60 border border-slate-800 text-left mb-4">
             <div className="text-[11px] font-mono text-secondary mb-1 flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-secondary" />
-              <span>CORTEX-9 HOST LOGIC:</span>
+              <span>GAME MASTER BRIEFING:</span>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed italic">
-              "Persona: {currentSettings.persona}. Category: {selectedCategory}. Adaptive handicap will dynamically balance point weights. Surprise buzzer round enabled!"
+              "Category: {selectedCategory}. Adaptive difficulty balances question pacing. Surprise buzzer blitz enabled!"
             </p>
           </div>
 
@@ -299,7 +299,7 @@ export function SettingsScreen({
                   onActivate={onBack}
                   className="flex items-center gap-2 px-5 py-3.5 rounded-2xl bg-surface border border-outline-variant text-slate-300 text-sm font-semibold hover:text-white transition"
                 >
-                  <span>Back to Home</span>
+                  <span>Back to Modes</span>
                 </TVFocusable>
               )}
 
@@ -321,7 +321,7 @@ export function SettingsScreen({
               className="flex items-center gap-3 px-10 py-4 rounded-2xl bg-gradient-to-r from-primary-container via-secondary to-cyan-300 text-slate-950 font-space font-bold text-lg tracking-wide shadow-2xl hover:brightness-110 active:scale-95 transition"
             >
               <Play className="w-6 h-6 fill-slate-950" />
-              <span>START GAME [OK]</span>
+              <span>CREATE GAME [OK]</span>
             </TVFocusable>
           </div>
         </div>

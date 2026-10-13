@@ -19,9 +19,9 @@ const DEFAULT_CATEGORIES: GameCategory[] = [
 ];
 
 const DEFAULT_MODES: GameModeInfo[] = [
-  { id: 'trivia', title: 'Party Trivia', subtitle: 'Fast-paced buzzer buzz', description: 'Quick-fire questions across cinema, science, and history.', icon: 'Brain', badge: 'POPULAR', isAvailable: true },
-  { id: 'movie_guess', title: 'Movie Guess', subtitle: 'Plot quotes & clips', description: 'Guess the blockbuster movie from famous quotes and plot clues.', icon: 'Film', badge: 'FAMILY', isAvailable: true },
-  { id: 'ai_surprise', title: 'AI Surprise Blitz', subtitle: 'Dynamic Cortex-9 balance', description: 'Unpredictable challenge rounds adapting to living room scores.', icon: 'Sparkles', badge: 'ADAPTIVE', isAvailable: true },
+  { id: 'trivia', title: 'Party Trivia', subtitle: '10 questions, 4 choices', description: 'Fastest path to a polished live demo. Score points per answer.', icon: 'Brain', badge: 'TRIVIA', isAvailable: true },
+  { id: 'movie_guess', title: 'Movie Guess', subtitle: 'Clues lead to a movie title', description: 'Guess blockbuster films from quotes, plots, and visual clues.', icon: 'Film', badge: 'MOVIE', isAvailable: true },
+  { id: 'ai_surprise', title: 'AI Surprise', subtitle: 'Dynamic adaptive bonus round', description: 'One dynamic living room challenge worth bonus points.', icon: 'Sparkles', badge: 'BONUS ROUND', isAvailable: true },
 ];
 
 const DEFAULT_PLAYERS: Player[] = [
@@ -62,7 +62,7 @@ export function GameModeScreen({
   const [activeDiff, setActiveDiff] = useState<DifficultyStrategy>(selectedDifficulty);
 
   useEffect(() => {
-    setActiveFocusId('mode-btn-start-top');
+    setActiveFocusId('mode-card-0');
   }, [setActiveFocusId]);
 
   const difficulties: DifficultyStrategy[] = ['EASY', 'MEDIUM', 'HARD', 'ADAPTIVE'];
@@ -131,7 +131,7 @@ export function GameModeScreen({
             onActivate={handleStart}
             className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-secondary text-slate-950 font-space font-bold text-sm tracking-wide shadow-lg hover:brightness-110 active:scale-95 transition"
           >
-            <span>START QUIZ [OK]</span>
+            <span>CONTINUE TO SETTINGS [OK]</span>
             <ArrowRight className="w-4 h-4" />
           </TVFocusable>
         </div>

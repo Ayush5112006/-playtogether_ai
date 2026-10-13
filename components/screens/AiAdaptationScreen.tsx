@@ -73,9 +73,9 @@ export default function AiAdaptationScreen({
           </div>
           <div>
             <span className="text-xs font-mono uppercase tracking-widest text-purple-400 flex items-center gap-2">
-              <Sparkles className="w-3.5 h-3.5" /> CORTEX-9 BALANCE ENGINE
+              <Sparkles className="w-3.5 h-3.5" /> AI GAME MASTER
             </span>
-            <h1 className="text-4xl font-black text-white tracking-tight">AI Adaptation Triggered</h1>
+            <h1 className="text-4xl font-black text-white tracking-tight">Adaptive Difficulty Updated</h1>
           </div>
         </div>
 
@@ -95,7 +95,14 @@ export default function AiAdaptationScreen({
           </div>
           <div className="mt-6 flex items-center gap-2 px-4 py-1.5 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-mono">
             <Volume2 className="w-4 h-4 animate-bounce" />
-            <span>NEURAL RE-SYNCHRONIZING</span>
+            <span>ADAPTING DIFFICULTY LEVEL</span>
+          </div>
+
+          <div className="mt-4 flex items-center gap-3 bg-purple-950/70 border border-purple-400/40 px-4 py-2 rounded-2xl">
+            <span className="text-xs font-mono text-purple-300">DIFFICULTY:</span>
+            <span className="text-sm font-black text-amber-300 font-mono">MEDIUM</span>
+            <span className="text-purple-400">➔</span>
+            <span className="text-sm font-black text-emerald-400 font-mono">HARD</span>
           </div>
         </div>
 
@@ -103,7 +110,7 @@ export default function AiAdaptationScreen({
         <div className="lg:col-span-8 space-y-4">
           <div className="p-6 rounded-3xl bg-purple-950/30 border border-purple-500/30 backdrop-blur-md">
             <span className="text-xs font-mono text-purple-400 uppercase tracking-widest block mb-1">
-              Host Insight & Rationale
+              Game Master Rationale
             </span>
             <p className="text-2xl font-bold text-white leading-snug">
               &ldquo;{reason}&rdquo;
@@ -117,17 +124,17 @@ export default function AiAdaptationScreen({
                 <span className="text-sm uppercase tracking-wider">Dynamic Pacing</span>
               </div>
               <p className="text-white/80 text-sm">
-                Timer relaxed for younger players; bonus streak rewards amplified for close match tension.
+                Next questions scaled up to HARD to challenge lead players, while keeping bonus streaks accessible.
               </p>
             </div>
 
             <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
               <div className="flex items-center gap-2 text-emerald-400 font-bold mb-2">
                 <Award className="w-5 h-5" />
-                <span className="text-sm uppercase tracking-wider">Underdog Catch-Up</span>
+                <span className="text-sm uppercase tracking-wider">Underdog Assistance</span>
               </div>
               <p className="text-white/80 text-sm">
-                Special streak multipliers enabled for trailing players to maintain competitive family balance.
+                Relaxed timer and 50/50 lifeline options prioritized for players trailing in points.
               </p>
             </div>
           </div>

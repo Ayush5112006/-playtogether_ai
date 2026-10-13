@@ -92,17 +92,23 @@ export function HomeScreen({
   };
 
   const handleStart = () => {
+    if (onStartGame) onStartGame();
+    else if (onQuickPlay) onQuickPlay();
+  };
+
+  const handleQuick = () => {
     if (onQuickPlay) onQuickPlay();
     else if (onStartGame) onStartGame();
   };
 
   const handleCustom = () => {
     if (onCustomGame) onCustomGame();
+    else if (onStartGame) onStartGame();
     else if (onContinueSession) onContinueSession();
   };
 
   const handleConfirmAdd = () => {
-    if (players.length >= 8) return;
+    if (players.length >= 4) return;
     const trimmed = newMemberName.trim() || `Player ${players.length + 1}`;
     const newMember: Player = {
       id: `p_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -142,16 +148,21 @@ export function HomeScreen({
             </div>
           </div>
 
-          <h1 className="font-space text-5xl font-extrabold text-white tracking-tight leading-tight mb-4">
-            One TV. One Remote.<br />
+          <h1 className="font-space text-5xl font-extrabold text-white tracking-tight leading-tight mb-3">
+            ONE TV.<br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-pink-400 to-purple-400">
-              Every Generation Plays.
+              EVERYONE PLAYS.
             </span>
           </h1>
 
-          <p className="font-outfit text-base text-slate-300 max-w-2xl mb-8 leading-relaxed">
-            AI-driven adaptive family trivia tailored for Amazon Fire TV. Dynamically balances difficulty between kids, adults, and seniors so everyone stays engaged.
+          <p className="font-outfit text-base text-slate-300 max-w-2xl mb-4 leading-relaxed">
+            AI-powered family entertainment built for the sofa, controlled by the Fire TV remote.
           </p>
+
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-purple-950/60 border border-purple-400/30 text-xs font-mono text-purple-200 mb-8">
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>&ldquo;Sit down, pick a game, and let PlayTogether run the night.&rdquo;</span>
+          </div>
 
           {/* Action Button Row */}
           <div className="flex items-center gap-4">
@@ -162,18 +173,18 @@ export function HomeScreen({
               className="px-8 py-4 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-500 to-amber-500 text-slate-950 font-space font-bold text-lg flex items-center gap-3 shadow-lg shadow-amber-500/25 ring-2 ring-white/50"
             >
               <Play className="w-5 h-5 fill-slate-950" />
-              <span>QUICK PLAY</span>
+              <span>START A GAME</span>
               <span className="text-xs px-2 py-0.5 rounded bg-black/20 text-black font-mono">OK</span>
             </TVFocusable>
 
             <TVFocusable
-              id="home-btn-custom"
+              id="home-btn-quick"
               group="home-actions"
-              onActivate={handleCustom}
+              onActivate={handleQuick}
               className="px-6 py-4 rounded-2xl bg-surface border border-outline-variant hover:border-secondary text-white font-space font-semibold text-base flex items-center gap-2 transition"
             >
               <Sparkles className="w-5 h-5 text-purple-400" />
-              <span>CUSTOM MODE</span>
+              <span>QUICK PLAY</span>
             </TVFocusable>
 
             {onSettings && (
@@ -201,8 +212,8 @@ export function HomeScreen({
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-mono text-cyan-300">{players.length}/8 Active</span>
-                {players.length < 8 && (
+                <span className="text-xs font-mono text-cyan-300">{players.length}/4 Active</span>
+                {players.length < 4 && (
                   <TVFocusable
                     id="home-btn-add-member"
                     group="home-roster"

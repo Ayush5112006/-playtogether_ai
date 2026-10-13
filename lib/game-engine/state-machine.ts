@@ -14,10 +14,10 @@ export const ALLOWED_TRANSITIONS: Record<GameScreenState, GameScreenState[]> = {
   SPLASH: ['HOME', 'AUTH'],
   AUTH: ['HOME', 'SPLASH'],
   HOME: ['AUTH', 'PLAYER_SETUP', 'SETTINGS', 'QUESTION', 'GAMEPLAY', 'GAME_MODE'],
-  PLAYER_SETUP: ['HOME', 'PLAYER_PICKER', 'GAME_MODE', 'GENERATING'],
-  PLAYER_PICKER: ['PLAYER_SETUP', 'GENERATING'],
-  GAME_MODE: ['PLAYER_SETUP', 'SETTINGS', 'HOME'],
-  SETTINGS: ['GAME_MODE', 'GENERATING', 'HOME'],
+  PLAYER_SETUP: ['GAME_MODE', 'PLAYER_PICKER', 'HOME'],
+  PLAYER_PICKER: ['PLAYER_SETUP'],
+  GAME_MODE: ['SETTINGS', 'PLAYER_SETUP', 'HOME'],
+  SETTINGS: ['GENERATING', 'GAME_MODE', 'HOME'],
   GENERATING: ['ROUND_INTRO', 'SETTINGS', 'HOME', 'QUESTION', 'GAMEPLAY'],
   ROUND_INTRO: ['QUESTION', 'GAMEPLAY', 'HOME'],
   QUESTION: ['ANSWER_RESULT', 'AI_ADAPTATION', 'SURPRISE', 'SURPRISE_ROUND', 'HOME'],
@@ -30,7 +30,7 @@ export const ALLOWED_TRANSITIONS: Record<GameScreenState, GameScreenState[]> = {
   FINAL: ['QUESTION', 'GAMEPLAY', 'WINNER', 'HOME'],
   FINAL_ROUND: ['QUESTION', 'GAMEPLAY', 'WINNER', 'HOME'],
   WINNER: ['RECAP', 'SETTINGS', 'HOME'],
-  RECAP: ['SETTINGS', 'PLAYER_SETUP', 'GAME_MODE', 'HOME'],
+  RECAP: ['PLAYER_SETUP', 'SETTINGS', 'GAME_MODE', 'HOME'],
 };
 
 /**
@@ -57,15 +57,15 @@ export function getPreviousLogicalState(
     case 'AUTH':
       return 'HOME';
     case 'PLAYER_SETUP':
-      return 'GAME_MODE';
+      return 'HOME';
     case 'PLAYER_PICKER':
       return 'PLAYER_SETUP';
     case 'GAME_MODE':
-      return 'HOME';
+      return 'PLAYER_SETUP';
     case 'SETTINGS':
-      return 'HOME';
+      return 'GAME_MODE';
     case 'GENERATING':
-      return 'PLAYER_PICKER';
+      return 'SETTINGS';
     case 'ROUND_INTRO':
       return 'HOME';
     case 'QUESTION':
