@@ -47,6 +47,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="color-scheme" content="dark" />
+        <link rel="manifest" href="/manifest.json" />
       </head>
       <body
         className="bg-[#070812] text-slate-100 antialiased overflow-hidden select-none font-outfit"

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminSupabaseClient } from '@/lib/supabase/admin';
 import { SEED_QUESTIONS } from '@/lib/game-engine/seed-questions';
+import { getOrGenerateQuestion } from '@/lib/ai/ai-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,15 +69,13 @@ export async function POST(
     selectedQuestion = dbQuestions.find((q) => !answeredIds.has(q.id)) || dbQuestions[0];
   }
 
-  // Fallback to seed bank if database returns nothing or is depleted
+  // Fallback to AI generation or validated seed bank if database returns nothing or is depleted
   if (!selectedQuestion) {
-    const filteredSeed = SEED_QUESTIONS.filter((q) => {
-      const matchCat = categoryFilter ? q.category === categoryFilter : true;
-      const matchDiff = difficultyFilter ? q.difficulty === difficultyFilter : true;
-      return matchCat && matchDiff && !answeredIds.has(q.id);
+    selectedQuestion = await getOrGenerateQuestion({
+      category: categoryFilter,
+      difficulty: difficultyFilter as any,
+      recentQuestionIds: Array.from(answeredIds),
     });
-
-    selectedQuestion = filteredSeed[0] || SEED_QUESTIONS[0];
   }
 
   // CRITICAL SECURITY REQUIREMENT:
