@@ -51,10 +51,13 @@ app.use('/api', sessionRoutes);    // POST /api/sessions, /api/sessions/:id/*
 app.use(notFoundHandler);
 app.use(globalErrorHandler);
 
-// ---------------------------------------------------------------------------
-// Start Server
-// ---------------------------------------------------------------------------
-app.listen(PORT, () => {
-  console.log(`[PlayTogether AI Backend] Running on http://localhost:${PORT}`);
-  console.log(`[Database] Connected to Live Supabase Cloud: ${process.env.SUPABASE_URL}`);
-});
+export { app };
+
+if (process.env.NODE_ENV !== 'test' && require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`[PlayTogether AI Backend] Running on http://localhost:${PORT}`);
+    console.log(`[Database] Connected to Live Supabase Cloud: ${process.env.SUPABASE_URL}`);
+  });
+}
+
+export default app;

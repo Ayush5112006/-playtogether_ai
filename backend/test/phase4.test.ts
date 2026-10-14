@@ -26,6 +26,7 @@ dotenv.config({ path: path.resolve(__dirname, '../.env') });
 import * as gameService from '../src/services/game.service';
 import * as supabaseService from '../src/services/supabase.service';
 import { getSupabaseClient } from '../src/config/supabase';
+import { app } from '../src/server';
 
 // Helper for HTTP requests
 function request(
@@ -181,7 +182,10 @@ async function runTests() {
   // INTEGRATION TESTS: Live Backend Endpoints (http://localhost:3000)
   // ---------------------------------------------------------------------------
   console.log('\n🌐 Section 2: Integration & Contract Verification (Express + Supabase)');
-  const PORT = 3000;
+  const server = await new Promise<http.Server>((resolve) => {
+    const s = app.listen(0, () => resolve(s));
+  });
+  const PORT = (server.address() as any).port;
 
   await test('404 on Unknown Session ID for all session endpoints', async () => {
     const unknownId = 'session_nonexistent_9999';
@@ -361,6 +365,8 @@ async function runTests() {
   console.log('\n=============================================================================');
   console.log(`📊 Test Results: ${passed}/${total} passed (${Math.round((passed / total) * 100)}%)`);
   console.log('=============================================================================\n');
+
+  await new Promise<void>((resolve) => server.close(() => resolve()));
 
   if (passed !== total) {
     process.exit(1);
